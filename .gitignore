@@ -1,0 +1,72 @@
+# --- 编译产物 (Build Artifacts) ---
+*.o
+*.obj
+*.d
+*.a
+*.so
+*.map
+*.hex
+*.bin
+*.elf
+
+# --- 可执行文件 (Executables) ---
+# 根据 Makefile 通常生成的默认名称
+demo
+main
+
+# --- 构建目录 (Build Directories) ---
+build/
+bin/
+out/
+Debug/
+Release/
+
+# --- IDE 及编辑器配置 (IDEs & Editors) ---
+# VS Code
+.vscode/
+# Eclipse (通常保留 .project/.cproject，但忽略本地构建配置)
+.settings/
+# VIM / 临时文件
+*~
+*.swp
+*.s// filepath: /home/theoyu/embedded-projects/lv_port_linux-release-v8.3/.gitignore
+# --- 编译产物 (Build Artifacts) ---
+*.o
+*.obj
+*.d
+*.a
+*.so
+*.map
+*.hex
+*.bin
+*.elf
+
+# --- 可执行文件 (Executables) ---
+# 根据 Makefile 通常生成的默认名称
+demo
+main
+
+# --- 构建目录 (Build Directories) ---
+build/
+bin/
+out/
+Debug/
+Release/
+
+# --- IDE 及编辑器配置 (IDEs & Editors) ---
+# VS Code
+.vscode/
+# Eclipse (通常保留 .project/.cproject，但忽略本地构建配置)
+.settings/
+# VIM / 临时文件
+*~
+*.swp
+*.s
+
+# 系统及其他干扰文件
+
+.DS_Store
+Thumbs.db
+
+# WSL元数据传输文件
+*:Zone.Identifier
