@@ -11,7 +11,6 @@
 
 # --- 可执行文件 (Executables) ---
 # 根据 Makefile 通常生成的默认名称
-demo
 main
 
 # --- 构建目录 (Build Directories) ---
@@ -43,7 +42,6 @@ Release/
 
 # --- 可执行文件 (Executables) ---
 # 根据 Makefile 通常生成的默认名称
-demo
 main
 
 # --- 构建目录 (Build Directories) ---
