@@ -8,6 +8,54 @@
 #include <sys/time.h>
 
 #define DISP_BUF_SIZE (128 * 1024)
+#define DISP_BUF_SIZE (128 * 1024)
+lv_obj_t * screen_div = NULL;
+lv_obj_t * div_btn1 = NULL;
+lv_obj_t * btn_label = NULL;
+
+static void div_btn1_event_key_cb(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        // 1. 修改 btn1 背景颜色为红色
+        lv_obj_set_style_bg_color(div_btn1, lv_color_hex(0xff0000), 0);
+
+        // 2. 创建蓝色的 btn2
+        lv_obj_t * btn2 = lv_btn_create(screen_div);
+        lv_obj_set_size(btn2, 100, 80);
+        lv_obj_set_style_bg_color(btn2, lv_color_hex(0x0000ff), 0);
+        
+        // 设置 btn2 位置 (例如放在 btn1 右侧)
+        lv_obj_align_to(btn2, div_btn1, LV_ALIGN_OUT_RIGHT_TOP, 20, 0); 
+        
+        lv_obj_t * label2 = lv_label_create(btn2);
+        lv_label_set_text(label2, "btn2");
+        lv_obj_center(label2);
+    }
+}
+
+
+void ui_app_start(void)
+{
+    screen_div = lv_obj_create(lv_scr_act());             //创建屏幕对象
+    lv_obj_set_size(screen_div, 800, 600);                //设置屏幕对象大小
+    lv_obj_center(screen_div);                            //设置屏幕对象居中
+    div_btn1 = lv_btn_create(screen_div);      //创建屏幕对象按钮
+    lv_obj_set_size(div_btn1, 100,80);                    //设置屏幕对象按钮大小
+    
+    // 始设置为蓝色，这样点击变蓝才有视觉效果；并将 NULL 改为 0 修复警告
+    lv_obj_set_style_bg_color(div_btn1, lv_color_hex(0x0000ff), 0);
+    
+    lv_obj_align(div_btn1, LV_ALIGN_TOP_LEFT, 20, 20);    // 设置按钮基于屏幕对象的左上角(稍微留点边距)
+    btn_label = lv_label_create(div_btn1);     //创建屏幕对象按钮标签
+    lv_label_set_text(btn_label, "btn1");               //设置按钮标签文本
+    lv_obj_set_style_text_color(btn_label, lv_color_hex(0xffffff), 0);//设置文本字体颜色
+    lv_obj_center(btn_label);                             //设置文本居中
+
+    //添加按钮事件函数（回调函数）
+    lv_obj_add_event_cb(div_btn1, div_btn1_event_key_cb, LV_EVENT_CLICKED, 0);
+}
 uint32_t custom_tick_get(void)
 {
     static uint64_t start_ms = 0;
@@ -82,34 +130,8 @@ int main(void)
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
 
-    //2、创建LCD屏幕对象
-    #if 0
-        lv_obj_t * Screen = lv_scr_act();            //创建屏幕
-        lv_obj_t * div = lv_obj_create(Screen);      //创建屏幕对象
-    #elif 1
-        lv_obj_t *div = lv_obj_create(lv_scr_act());    //创建屏幕对象
-    #endif
-    //3、设置对象大小（480*480）
-    lv_obj_set_size(div, 480, 480);
-    //4、设置对象样式（颜色、弧度、边框、背景.....）style ——>样式 R G B
-    lv_obj_set_style_bg_color(div, lv_color_hex(0xffff00), NULL);//设置对象背景颜色
-    lv_obj_set_style_border_width(div, 5, NULL);                //设置对象边框宽度
-    lv_obj_set_style_border_color(div, lv_color_hex(0x0000ff), NULL);//设置对象边框颜色
-    lv_obj_set_style_radius(div, 240, NULL);//设置对象弧度
-    //5、设置对象位置（中心）
-    lv_obj_center(div);
-    //lv_obj_align(div, LV_ALIGN_CENTER, 0, 0);
-
-    //1、创建对象按钮
-    lv_obj_t * btn = lv_btn_create(div);
-    //2、设置按钮大小(80*80)
-    lv_obj_set_size(btn, 80, 80);
-    //3、设置按钮样式 A R G B 
-    lv_obj_set_style_bg_color(btn, lv_color_hex(0x8000ff00), NULL);
-    //4、设置按钮背景透明度
-    lv_obj_set_style_bg_opa(btn, LV_OPA_80, NULL);
-    //5、设置按钮位置
-    lv_obj_center(btn);
+    // 2.创建UI界面
+    ui_app_start();
 
 
     /*Handle LitlevGL tasks (tickless mode)*/
