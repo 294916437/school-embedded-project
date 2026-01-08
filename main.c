@@ -6,55 +6,15 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include "modules/buzzer.h"
+#include "modules/LED.h"
+#include "ui/lvgl_mode_gui.c"
 
 #define DISP_BUF_SIZE (128 * 1024)
-#define DISP_BUF_SIZE (128 * 1024)
-lv_obj_t * screen_div = NULL;
-lv_obj_t * div_btn1 = NULL;
-lv_obj_t * btn_label = NULL;
-
-static void div_btn1_event_key_cb(lv_event_t * e)
-{
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_CLICKED)
-    {
-        // 1. 修改 btn1 背景颜色为红色
-        lv_obj_set_style_bg_color(div_btn1, lv_color_hex(0xff0000), 0);
-
-        // 2. 创建蓝色的 btn2
-        lv_obj_t * btn2 = lv_btn_create(screen_div);
-        lv_obj_set_size(btn2, 100, 80);
-        lv_obj_set_style_bg_color(btn2, lv_color_hex(0x0000ff), 0);
-        
-        // 设置 btn2 位置 (例如放在 btn1 右侧)
-        lv_obj_align_to(btn2, div_btn1, LV_ALIGN_OUT_RIGHT_TOP, 20, 0); 
-        
-        lv_obj_t * label2 = lv_label_create(btn2);
-        lv_label_set_text(label2, "btn2");
-        lv_obj_center(label2);
-    }
-}
-
 
 void ui_app_start(void)
 {
-    screen_div = lv_obj_create(lv_scr_act());             //创建屏幕对象
-    lv_obj_set_size(screen_div, 800, 600);                //设置屏幕对象大小
-    lv_obj_center(screen_div);                            //设置屏幕对象居中
-    div_btn1 = lv_btn_create(screen_div);      //创建屏幕对象按钮
-    lv_obj_set_size(div_btn1, 100,80);                    //设置屏幕对象按钮大小
-    
-    // 始设置为蓝色，这样点击变蓝才有视觉效果；并将 NULL 改为 0 修复警告
-    lv_obj_set_style_bg_color(div_btn1, lv_color_hex(0x0000ff), 0);
-    
-    lv_obj_align(div_btn1, LV_ALIGN_TOP_LEFT, 20, 20);    // 设置按钮基于屏幕对象的左上角(稍微留点边距)
-    btn_label = lv_label_create(div_btn1);     //创建屏幕对象按钮标签
-    lv_label_set_text(btn_label, "btn1");               //设置按钮标签文本
-    lv_obj_set_style_text_color(btn_label, lv_color_hex(0xffffff), 0);//设置文本字体颜色
-    lv_obj_center(btn_label);                             //设置文本居中
-
-    //添加按钮事件函数（回调函数）
-    lv_obj_add_event_cb(div_btn1, div_btn1_event_key_cb, LV_EVENT_CLICKED, 0);
+    lvgl_mode_gui_start();
 }
 uint32_t custom_tick_get(void)
 {
@@ -129,7 +89,9 @@ int main(void)
 {
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
-
+    led_init();
+    buzz_init();
+    
     // 2.创建UI界面
     ui_app_start();
 
