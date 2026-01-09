@@ -12,11 +12,11 @@ BIN = demo
 
 
 #Collect the files to compile
-MAINSRC = ./main.c\
-./modules/LED.c\
-./modules/buzzer.c\ 
-./ui/show_img.c\
-./modules/free_font_init.c\
+MAINSRC = ./main.c ./modules/LED.c ./modules/buzzer.c ./ui/show_img.c ./modules/freetype_font_init.c 
+
+
+
+
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk

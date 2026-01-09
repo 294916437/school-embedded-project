@@ -9,17 +9,22 @@
 #include <sys/time.h>
 #include "modules/buzzer.h"
 #include "modules/LED.h"
-#include "ui/lvgl_mode_gui.c"
-#include "ui/show_img.c"
+#include "modules/freetype_font_init.h"
+// #include "modules/lvgl_mode_gui.c"
+// #include "ui/show_img.c"
 
 #define DISP_BUF_SIZE (128 * 1024)
 
 void ui_app_start(void)
 {
     // lvgl_mode_gui_start();
-    JPG_Mode();
+    // JPG_Mode();
     // PNG_Mode();
     // GIF_Mode();
+    lv_obj_t *label = lv_label_create(lv_scr_act());
+    lv_obj_add_style(label, &style, 0);
+    lv_label_set_text(label, "你好 LVGL!");
+    lv_obj_center(label);
 }
 uint32_t custom_tick_get(void)
 {
@@ -95,11 +100,10 @@ int main(void)
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
     // 2. 初始化LED和蜂鸣器模块
-    // led_init();
-    // buzz_init();
-    // 3. 初始化解码器
-    lv_png_init();
-    
+    led_init();
+    buzz_init();
+    // 3. 初始化字体模块
+    font_init("./simfang.ttf", 24, &style);
     // 4.创建UI界面
     ui_app_start();
 
