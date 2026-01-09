@@ -1,5 +1,4 @@
 #include "lvgl/lvgl.h"
-#include "lvgl/src/extra/libs/png/lv_png.h"
 #include "lvgl/demos/lv_demos.h"
 #include "lv_drivers/display/fbdev.h"
 #include "lv_drivers/indev/evdev.h"
@@ -10,8 +9,6 @@
 #include "modules/buzzer.h"
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
-// #include "modules/lvgl_mode_gui.c"
-// #include "ui/show_img.c"
 
 #define DISP_BUF_SIZE (128 * 1024)
 
@@ -26,6 +23,7 @@ void ui_app_start(void)
     lv_label_set_text(label, "你好 LVGL!");
     lv_obj_center(label);
 }
+
 uint32_t custom_tick_get(void)
 {
     static uint64_t start_ms = 0;
@@ -99,13 +97,16 @@ int main(void)
 {
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
-    // 2. 初始化LED和蜂鸣器模块
+
+    font_init("./simfang.ttf", 24, &style);  // 初始化字体
+    // 2. 初始化蜂鸣器和LED
     led_init();
     buzz_init();
-    // 3. 初始化字体模块
-    font_init("./simfang.ttf", 24, &style);
-    // 4.创建UI界面
+
+    // 4. 启动UI界面
     ui_app_start();
+    
+
 
 
     /*Handle LitlevGL tasks (tickless mode)*/

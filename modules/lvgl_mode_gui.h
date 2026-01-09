@@ -10,6 +10,8 @@
 #include <sys/time.h>
 #include "../modules/buzzer.h"
 #include "../modules/LED.h"
+
+void lvgl_mode_gui(void);
 #endif
 
 
