@@ -7,57 +7,82 @@
     #include <pthread.h>
     #include <time.h>
     #include <sys/time.h>
+    #include "ui/car_dashboard.h"
+    #include "modules/freetype_font_init.h"
 #endif
 
 #define DISP_BUF_SIZE (128 * 1024)
-lv_obj_t * screen = NULL;
-lv_obj_t * btn1 = NULL;
-lv_obj_t * btn2 = NULL;
-lv_obj_t * btn_label = NULL;
-
-static void div_btn1_event_key_cb(lv_event_t * e)
+lv_obj_t *Da = NULL;
+    lv_obj_t *Sa = NULL;
+    lv_obj_t *Da_Label = NULL;
+    lv_meter_indicator_t * indic;
+void value_cb(lv_timer_t * timer)
 {
-    lv_event_code_t code = lv_event_get_code(e);
-    if(code == LV_EVENT_CLICKED)
-    {
-        // 1. 修改 btn1 背景颜色为红色
-        lv_obj_set_style_bg_color(btn1, lv_color_hex(0xff0000), 0);
+    static int32_t val = 0;
+    static bool up = true;
 
-        // 2. 创建蓝色的 btn2
-        lv_obj_t * btn2 = lv_btn_create(screen);
-        lv_obj_set_size(btn2, 100, 80);
-        lv_obj_set_style_bg_color(btn2, lv_color_hex(0x0000ff), 0);
-        
-        // 设置 btn2 位置 (例如放在 btn1 右侧)
-        lv_obj_align_to(btn2, btn1, LV_ALIGN_OUT_RIGHT_TOP, 20, 0); 
-        
-        lv_obj_t * label2 = lv_label_create(btn2);
-        lv_label_set_text(label2, "btn2");
-        lv_obj_center(label2);
+    /* 模拟速度变化 */
+    if(up) {
+        val += 2;
+        if(val >= 240) up = false;
+    } else {
+        val -= 2;
+        if(val <= 0) up = true;
+    }
+
+    /* 设置指针值 */
+    lv_meter_set_indicator_value(Da, indic, val);
+
+    /* 更新标签文本 */
+    if(Da_Label) {
+        lv_label_set_text_fmt(Da_Label, "%d", val);
     }
 }
 
-
 void ui_app_start(void)
 {
-    screen = lv_obj_create(lv_scr_act());             //创建屏幕对象
-    lv_obj_set_size(screen, 800, 600);                //设置屏幕对象大小
-    lv_obj_center(screen);                            //设置屏幕对象居中
-    btn1 = lv_btn_create(screen);      //创建屏幕对象按钮
-    lv_obj_set_size(btn1, 100,80);                    //设置屏幕对象按钮大小
-    
-    // 始设置为蓝色，这样点击变蓝才有视觉效果；并将 NULL 改为 0 修复警告
-    lv_obj_set_style_bg_color(btn1, lv_color_hex(0x0000ff), 0);
-    
-    lv_obj_align(btn1, LV_ALIGN_TOP_LEFT, 20, 20);    // 设置按钮基于屏幕对象的左上角(稍微留点边距)
-    btn_label = lv_label_create(btn1);     //创建屏幕对象按钮标签
-    lv_label_set_text(btn_label, "btn1");               //设置按钮标签文本
-    lv_obj_set_style_text_color(btn_label, lv_color_hex(0xffffff), 0);//设置文本字体颜色
-    lv_obj_center(btn_label);                             //设置文本居中
+    // 1. 创建仪表盘圆盘
+    Da = lv_meter_create(lv_scr_act());
+    lv_obj_set_size(Da, 400, 400); // 调整尺寸以适应常见屏幕
+    lv_obj_center(Da);
 
-    //添加按钮事件函数（回调函数）
-    lv_obj_add_event_cb(btn1, div_btn1_event_key_cb, LV_EVENT_CLICKED, 0);
+    // 2. 创建仪表盘刻度
+    lv_meter_scale_t * scale = lv_meter_add_scale(Da);
+    lv_meter_set_scale_ticks(Da, scale, 41, 2, 10, lv_palette_main(LV_PALETTE_GREY)); // 小刻度
+    lv_meter_set_scale_major_ticks(Da, scale, 8, 4, 15, lv_color_black(), 10);      // 大刻度
+    lv_meter_set_scale_range(Da, scale, 0, 240, 270, 135); // 0-240km/h, 270度范围, 起始角度135
+
+    /* 添加蓝色弧线表示正常速度区间 */
+    lv_meter_indicator_t * indic_blue = lv_meter_add_arc(Da, scale, 3, lv_palette_main(LV_PALETTE_BLUE), 0);
+    lv_meter_set_indicator_start_value(Da, indic_blue, 0);
+    lv_meter_set_indicator_end_value(Da, indic_blue, 180);
+
+    /* 添加红色弧线表示危险速度区间 */
+    lv_meter_indicator_t * indic_red = lv_meter_add_arc(Da, scale, 3, lv_palette_main(LV_PALETTE_RED), 0);
+    lv_meter_set_indicator_start_value(Da, indic_red, 180);
+    lv_meter_set_indicator_end_value(Da, indic_red, 240);
+
+    /* 每20个单位添加一个刻度标签 */
+
+    // 3. 创建仪表盘指针
+    indic = lv_meter_add_needle_line(Da, scale, 4, lv_palette_main(LV_PALETTE_RED), -10);
+
+    // 4. 创建仪表盘标签 (速度数值)
+    Da_Label = lv_label_create(Da);
+    lv_label_set_text(Da_Label, "0");
+    lv_obj_set_style_text_font(Da_Label, &lv_font_montserrat_48, 0); 
+    lv_obj_align(Da_Label, LV_ALIGN_CENTER, 0, 80);
+
+    /* 添加单位标签 */
+    lv_obj_t * unit_label = lv_label_create(Da);
+    lv_label_set_text(unit_label, "km/h");
+    lv_obj_align(unit_label, LV_ALIGN_CENTER, 0, 120);
+
+    // 5. 创建模拟动画
+    lv_timer_create(value_cb, 50, NULL);
 }
+
+    
 // === 插件专用入口 ===
 #ifdef LVGL_LIVE_PREVIEW
 void lvgl_live_preview_init(void) {
