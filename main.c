@@ -9,7 +9,7 @@
 #include "modules/buzzer.h"
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
-
+#include "ui/car_dashboard.h"
 #define DISP_BUF_SIZE (128 * 1024)
 
 void ui_app_start(void)
@@ -18,10 +18,7 @@ void ui_app_start(void)
     // JPG_Mode();
     // PNG_Mode();
     // GIF_Mode();
-    lv_obj_t *label = lv_label_create(lv_scr_act());
-    lv_obj_add_style(label, &style, 0);
-    lv_label_set_text(label, "你好 LVGL!");
-    lv_obj_center(label);
+    car_dashboard_init(&style);
 }
 
 uint32_t custom_tick_get(void)
