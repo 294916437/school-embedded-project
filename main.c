@@ -6,7 +6,6 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
 #include "ui/car_dashboard.h"
@@ -39,11 +38,6 @@ uint32_t custom_tick_get(void)
     uint32_t time_ms = now_ms - start_ms;
     return time_ms;
 }
-/*
-*   MODE     :       函数工程初始化LVGL函数且设置屏幕分辨率宽高
-*   package1 ：      显示屏分辨率宽度
-*   package2 :       显示屏分辨率高度
-*/
 
 void init_lvgl(int LCD_WIDTH, int LCD_HEIGHT)
 {
@@ -95,8 +89,8 @@ int main(void)
 {
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
-
-    font_init("./simfang.ttf", 24, &style);  // 初始化字体
+    // 初始化字体
+    font_init("./simfang.ttf", 24, &style);
     // 2. 初始化蜂鸣器和LED
     led_init();
     buzz_init();
@@ -106,9 +100,6 @@ int main(void)
 
     // 4. 启动UI界面
     ui_app_start();
-    
-
-
 
     /*Handle LitlevGL tasks (tickless mode)*/
     while(1) {

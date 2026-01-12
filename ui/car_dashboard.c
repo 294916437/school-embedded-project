@@ -23,7 +23,7 @@ static bool right_led_state = false;
 static bool left_blinking = false;
 static bool right_blinking = false;
 
-/* 调整闪烁间隔（毫秒）——保持 UI 与硬件同步 */
+/* 调整闪烁间隔 */
 static const uint32_t BLINK_MS = 500;
 
 /* 当前速度状态 */
@@ -53,7 +53,7 @@ static void change_speed(int32_t diff)
         lv_label_set_text_fmt(Da_Label, "%d", current_val);
     }
 
-    /* 同步更新转速表（示例映射：speed -> rpm） */
+    /* 同步更新转速表 */
     if(Sa && Sa_indic && Sa_Label) {
         /* 0..240 -> 0..8000 rpm 映射 */
         current_rpm = (int32_t)((int64_t)current_val * 8000 / 240);
@@ -144,7 +144,7 @@ static void btn_turn_event_cb(lv_event_t * e)
 
 
 void car_dashboard_init(lv_style_t *style) {
-    // 1. 创建并样式化两个同尺寸的仪表盘（速度和转速），居中左右分布
+    // 1. 两个同尺寸的仪表盘（速度和转速），居中左右分布
     const int meter_size = 260;
 
     lv_style_t meter_style;
@@ -170,12 +170,12 @@ void car_dashboard_init(lv_style_t *style) {
     lv_meter_set_scale_major_ticks(Da, scale, 8, 4, 15, lv_color_hex(0xFFFFFF), 10);
     lv_meter_set_scale_range(Da, scale, 0, 240, 270, 135); // 0-240km/h
 
-    /* 添加霓虹蓝弧线表示正常速度区间 */
+    /* 霓虹蓝弧线表示正常速度区间 */
     lv_meter_indicator_t * indic_blue = lv_meter_add_arc(Da, scale, 6, lv_color_hex(0x00bfff), 0);
     lv_meter_set_indicator_start_value(Da, indic_blue, 0);
     lv_meter_set_indicator_end_value(Da, indic_blue, 180);
 
-    /* 添加霓虹红弧线表示危险速度区间 */
+    /* 霓虹红弧线表示危险速度区间 */
     lv_meter_indicator_t * indic_red = lv_meter_add_arc(Da, scale, 6, lv_color_hex(0xff4d6d), 0);
     lv_meter_set_indicator_start_value(Da, indic_red, 180);
     lv_meter_set_indicator_end_value(Da, indic_red, 240);
@@ -198,8 +198,7 @@ void car_dashboard_init(lv_style_t *style) {
     /* 确保刻度数字为白色 */
     lv_obj_set_style_text_color(Da, lv_color_hex(0xFFFFFF), 0);
 
-    /* --- 创建转速表（RPM） --- */
-    /* 转速表（与速度表同尺寸，放右侧） */
+    /* 转速表 */
     Sa = lv_meter_create(lv_scr_act());
     lv_obj_set_size(Sa, meter_size, meter_size);
     lv_obj_align(Sa, LV_ALIGN_CENTER, 180, 0);
