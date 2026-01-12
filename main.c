@@ -6,17 +6,18 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-#include "modules/buzzer.h"
+
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
 #include "ui/car_dashboard.h"
+
 #define DISP_BUF_SIZE (128 * 1024)
 
 void ui_app_start(void)
 {
     // lvgl_mode_gui_start();
     // JPG_Mode();
-    // PNG_Mode();
+    PNG_Mode();
     // GIF_Mode();
     car_dashboard_init(&style);
 }
@@ -100,6 +101,9 @@ int main(void)
     led_init();
     buzz_init();
 
+    // 初始化解码器
+    lv_png_init();
+
     // 4. 启动UI界面
     ui_app_start();
     
@@ -114,4 +118,3 @@ int main(void)
 
     return 0;
 }
-
