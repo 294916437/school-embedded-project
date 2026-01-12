@@ -32,8 +32,7 @@ static int32_t current_val = 0;
 static int32_t current_rpm = 0;
 
 /**
- * @brief 统一更新速度值的内部函数
- * @param diff 变化量 (正数增加，负数减少)
+ * 统一更新速度值的内部函数
  */
 static void change_speed(int32_t diff)
 {
@@ -63,8 +62,7 @@ static void change_speed(int32_t diff)
 }
 
 /**
- * @brief 按钮事件回调
- * 支持短按单次调节，长按连续调节
+ * 按钮事件回调
  */
 static void btn_event_cb(lv_event_t * e)
 {
