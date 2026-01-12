@@ -11,7 +11,7 @@
 #include "../modules/buzzer.h"
 #include "../modules/LED.h"
 
-void lvgl_mode_gui(void);
+void lvgl_mode_gui_start(void);
 #endif
 
 
