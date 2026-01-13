@@ -172,6 +172,8 @@ void music_gui_init(lv_style_t* style)
     if(style != NULL) {
         lv_obj_add_style(label_song_name, style, 0);
     }
+    lv_label_set_long_mode(label_song_name, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_width(label_song_name, LV_HOR_RES - 140);
     lv_obj_align(label_song_name, LV_ALIGN_CENTER, 0, -20);
 
     /* 歌曲索引 */
@@ -184,7 +186,7 @@ void music_gui_init(lv_style_t* style)
 
     /* 歌词显示区域 */
     lv_obj_t *lyrics_container = lv_obj_create(music_screen);
-    lv_obj_set_size(lyrics_container, LV_HOR_RES - 80, 140);
+    lv_obj_set_size(lyrics_container, 140, 140);
     lv_obj_align(lyrics_container, LV_ALIGN_TOP_MID, 0, 175);
     lv_obj_set_style_bg_color(lyrics_container, lv_palette_main(LV_PALETTE_PURPLE), 0);
     lv_obj_set_style_bg_opa(lyrics_container, LV_OPA_10, 0);
@@ -198,8 +200,8 @@ void music_gui_init(lv_style_t* style)
     if(style != NULL) {
         lv_obj_add_style(label_lyrics, style, 0);
     }
-    lv_label_set_long_mode(label_lyrics, LV_LABEL_LONG_WRAP); // 自动换行
-    lv_obj_set_width(label_lyrics, LV_HOR_RES - 120);
+    lv_label_set_long_mode(label_lyrics, LV_LABEL_LONG_SCROLL_CIRCULAR); // 循环滚动
+    lv_obj_set_width(label_lyrics, 120);
     lv_obj_center(label_lyrics);
 
     /* 控制按钮容器 */

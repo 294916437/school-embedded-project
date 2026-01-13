@@ -5,12 +5,12 @@ static music_info_t music_list[] = {
     {
         .file_path = "./jiangnan.mp3",
         .song_name = "江南",
-        .lyrics = "风到这里就是粘\n粘住过客的思念\n雨到了这里缠成线\n缠着我们流连人世间"
+        .lyrics = "风到这里就是粘-粘住过客的思念-雨到了这里缠成线-缠着我们流连人世间"
     },
     {
         .file_path = "./youfeng.mp3",
         .song_name = "悠风",
-        .lyrics = "悠风吹过\n又是一季花开落\n又是一次离别时\n又是一段相思愁"
+        .lyrics = "悠风吹过-又是一季花开落-又是一次离别时-又是一段相思愁"
     }
 };
 
