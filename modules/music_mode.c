@@ -1,38 +1,75 @@
 #include "music_mode.h"
-#define MAX_MUSIC_NUM 30
-static char *music_list[MAX_MUSIC_NUM] = {
-    "/song1.mp3",
-    "/song2.mp3",
-    "/song3.mp3",
-    "/song4.mp3",
-    "/song5.mp3"
+
+// 音乐列表
+static music_info_t music_list[] = {
+    {
+        .file_path = "./jiangnan.mp3",
+        .song_name = "江南",
+        .lyrics = "风到这里就是粘\n粘住过客的思念\n雨到了这里缠成线\n缠着我们流连人世间"
+    },
+    {
+        .file_path = "./youfeng.mp3",
+        .song_name = "悠风",
+        .lyrics = "悠风吹过\n又是一季花开落\n又是一次离别时\n又是一段相思愁"
+    }
 };
-int music_flag = 0;
+
+static int music_flag = 0;
+static int total_music = sizeof(music_list) / sizeof(music_list[0]);
+
 void play_music(void) {
-    char buf[100];
-    snprintf(buf, sizeof(buf), "play %s &", music_list[music_flag]);
+    char buf[200];
+    snprintf(buf, sizeof(buf), "play %s &", music_list[music_flag].file_path);
     system(buf);
 }
+
 void stop_music(void) {
     system("killall -STOP play");
 }
 
 void next_music(void) {
-    music_flag = (music_flag + 1) % MAX_MUSIC_NUM;
-    char buf[100];
-    snprintf(buf, sizeof(buf), "play %s &", music_list[music_flag]);
-    system(buf);
+    // 先停止当前播放
+    end_music_mode();
+    
+    // 切换到下一首
+    music_flag = (music_flag + 1) % total_music;
+    
+    // 播放新歌曲
+    play_music();
 }
+
 void previous_music(void) {
-    music_flag = (music_flag - 1 + MAX_MUSIC_NUM) % MAX_MUSIC_NUM;
-    char buf[100];
-    snprintf(buf, sizeof(buf), "play %s &", music_list[music_flag]);
-    system(buf);
+    // 先停止当前播放
+    end_music_mode();
+    
+    // 切换到上一首
+    music_flag = (music_flag - 1 + total_music) % total_music;
+    
+    // 播放新歌曲
+    play_music();
 }
 
 void continue_music_mode(void) {
-    system("killall -CONT play &");
+    system("killall -CONT play");
 }
+
 void end_music_mode(void) {
     system("killall -9 play");
+}
+
+// 新增接口实现
+int get_current_music_index(void) {
+    return music_flag;
+}
+
+int get_total_music_count(void) {
+    return total_music;
+}
+
+const char* get_current_song_name(void) {
+    return music_list[music_flag].song_name;
+}
+
+const char* get_current_lyrics(void) {
+    return music_list[music_flag].lyrics;
 }

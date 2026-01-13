@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
-#include "ui/car_dashboard.h"
+#include "ui/lvgl_music_gui.c"
 
 #define DISP_BUF_SIZE (128 * 1024)
 
@@ -16,9 +16,10 @@ void ui_app_start(void)
 {
     // lvgl_mode_gui_start();
     // JPG_Mode();
-    PNG_Mode();
+    // PNG_Mode();
     // GIF_Mode();
-    car_dashboard_init(&style);
+    // car_dashboard_init(&style);
+    music_gui_init(&style);
 }
 
 uint32_t custom_tick_get(void)
@@ -89,19 +90,21 @@ int main(void)
 {
     // 1.初始化LVGL功能模块
     init_lvgl(1024, 600);
-    // 初始化字体
+    
+    // 2.初始化字体（必须在创建任何UI之前）
     font_init("./simfang.ttf", 24, &style);
-    // 2. 初始化蜂鸣器和LED
+    
+    // 3.初始化蜂鸣器和LED
     led_init();
     buzz_init();
 
-    // 初始化解码器
+    // 4.初始化解码器
     lv_png_init();
 
-    // 4. 启动UI界面
+    // 5.启动UI界面
     ui_app_start();
 
-    /*Handle LitlevGL tasks (tickless mode)*/
+    // 6.主循环
     while(1) {
         lv_timer_handler();
         usleep(5000);

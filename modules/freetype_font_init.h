@@ -1,6 +1,6 @@
 #ifndef _FREETYPE_FONT_INIT_H
 #define _FREETYPE_FONT_INIT_H
-#include "lvgl_mode_gui.h"
+#include "common.h"
 
 lv_ft_info_t  info;
 lv_style_t  style;
