@@ -311,7 +311,7 @@ static void volumup_video(lv_event_t *e) {
     }
 }
 
-// 新增：进度条事件回调函数
+// 进度条事件回调函数
 static void progress_video(lv_event_t *e) {
     if(fifo_fd != -1 && total_seconds > 0) {
         // 获取滑块当前值
@@ -327,7 +327,6 @@ static void progress_video(lv_event_t *e) {
         
 
         lv_label_set_text_fmt(progress_label, "%02d:%02d/%s", mins, sec, video_length);
-        // printf("%d%%\n",current_seconds*100/total_seconds);
     }
 }
 
@@ -338,8 +337,7 @@ static void slider_start_drag(lv_event_t *e) {
     // printf("is drw:%d\n",is_slider_dragging);
    
 }
-
-// 新增：滑块结束拖动事件
+// 滑块结束拖动事件
 static void slider_end_drag(lv_event_t *e) {
     char buf[50];
     is_slider_dragging = 0;
@@ -351,14 +349,14 @@ static void slider_end_drag(lv_event_t *e) {
     lv_timer_resume(one_sec_timer);
 }
 
-// 新增：时长更新的异步回调函数（在主线程执行）
+// 时长更新的异步回调函数（在主线程执行）
 static void update_length_async(void *param) {
     char *text = (char *)param;
     lv_label_set_text_fmt(progress_label, "%s/%s", current_position, video_length);
     
 }
 
-// 新增：进度更新的异步回调函数（在主线程执行）
+// 进度更新的异步回调函数（在主线程执行）
 static void update_position_async(void *param) {
     char *text = (char *)param;
     lv_label_set_text_fmt(progress_label, "%s/%s", current_position, video_length);
@@ -481,12 +479,6 @@ void video_init() {
     lv_obj_align(video_player,LV_ALIGN_CENTER,0,-100);
     lv_obj_add_style(video_player, &video_area_style, 0);
 
-    // 状态标签
-    status_label = lv_label_create(video_screen);
-    lv_obj_align(status_label, LV_ALIGN_BOTTOM_MID, 400, -40);
-    lv_label_set_text(status_label, "未播放");
-    lv_obj_add_style(status_label, &status_style, 0);
-
     // 控制按钮 - 播放/暂停 (▶/⏸)
     play_btn = lv_btn_create(video_screen);
     lv_obj_set_size(play_btn,100,40);
@@ -524,16 +516,10 @@ void video_init() {
     lv_obj_add_style(volumup_btn, &slider_style_indicator, LV_PART_INDICATOR);
     lv_obj_add_style(volumup_btn, &slider_style_knob, LV_PART_KNOB);
 
-    // 音量控制
-    volumup_label = lv_label_create(video_screen);
-    lv_obj_align(volumup_label, LV_ALIGN_BOTTOM_MID, 400,-3);
-    lv_label_set_text(volumup_label, "音量调节");
-    lv_obj_add_style(volumup_label, &status_style, 0);
-
     // 创建进度显示标签
     progress_label = lv_label_create(video_screen);
     lv_obj_align(progress_label, LV_ALIGN_BOTTOM_MID, 300, -35);  // 位于控制按钮上方
-    lv_label_set_text(progress_label, "00:00/00:00");
+    lv_label_set_text(progress_label, "00:00 00:00");
     lv_obj_add_style(progress_label, &status_style, 0);
 
     // 创建进度滑动条

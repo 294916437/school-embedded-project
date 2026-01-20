@@ -36,18 +36,18 @@ char lv_chx_buf[100];
 
 lv_obj_t * lv_calculator_background ;    //矩阵按钮背景
 
-
 /**
  * 返回按钮事件处理（返回主界面）
  */
-static void lv_calculator_back_event_handler(lv_event_t * event)
+static void lv_calculator_event_handler(lv_event_t * event)
 {
+    lv_obj_t* obj = lv_event_get_target(event);
     lv_event_code_t code = lv_event_get_code(event);
 
-    if(code == LV_EVENT_CLICKED)    /* 点击返回 */
+    if(code == LV_EVENT_CLICKED)    /*点击 */
     {
-        lv_obj_del(lv_calculator_background);  // 删除计算器界面
-        lv_run_main();  // 返回主界面
+        lv_obj_del(lv_calculator_background);
+        lv_run_main();
     }
 }
 
@@ -326,18 +326,7 @@ static void lv_event_handler(lv_event_t *event)
 }
 
 
-static void lv_calculator_event_handler(lv_event_t * event)
-{
-    lv_obj_t* obj = lv_event_get_target(event);
-    lv_event_code_t code = lv_event_get_code(event);
 
-    if(code == LV_EVENT_CLICKED)    /*点击 */
-    {
-//        printf("calculator close ok\n");
-        lv_obj_del(lv_calculator_background);
-        lv_run_main();
-    }
-}
 
 
 
@@ -386,14 +375,14 @@ void lv_calculator_demo(void)
 
     lv_obj_set_size(btnm,lv_obj_get_width(lv_scr_act()), lv_obj_get_height(lv_scr_act())/1.6);
     lv_obj_align(btnm,LV_ALIGN_BOTTOM_MID,0,20);
-    lv_obj_set_style_bg_color(btnm,lv_color_hex(0xE6E6FA),LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(btnm,lv_color_hex(0xFFFFFF),LV_PART_ITEMS);
     lv_obj_set_style_radius(btnm,0,0);
     lv_obj_set_style_border_opa(btnm,100,0);
 
     lv_obj_add_event_cb(btnm, lv_event_handler, LV_EVENT_ALL, NULL);
 
 
-//   /* 创建输入框 */
+    /* 创建输入框 */
     phone_ta = lv_textarea_create(lv_calculator_background);
     lv_textarea_set_text(phone_ta, "0");
     lv_textarea_set_one_line(phone_ta, true);           /* 将文本区域配置为一行或恢复正常 */
@@ -413,12 +402,12 @@ void lv_calculator_demo(void)
     lv_obj_set_style_text_font(label_dec,&lv_font_montserrat_14,0);
     lv_obj_align_to(label_dec,phone_ta,LV_ALIGN_BOTTOM_RIGHT,-50,-10);
 
-   /*标题文字*/
+    /*标题文字*/
     lv_obj_t *label_obj = lv_obj_create(lv_calculator_background);
     lv_obj_set_size(label_obj,lv_obj_get_width(lv_scr_act()),50);
     lv_obj_align_to(label_obj,phone_ta,LV_ALIGN_OUT_TOP_MID,0,0);
     lv_obj_set_style_radius(label_obj,0,0);
-    lv_obj_set_style_border_opa(label_obj,0,0);
+    lv_obj_set_style_bg_opa(label_obj, 0, LV_PART_MAIN);
 
     lv_obj_t *label_name = lv_label_create(label_obj);
     lv_label_set_text(label_name,"计算器");
@@ -431,14 +420,12 @@ void lv_calculator_demo(void)
     lv_obj_t *btn_quit = lv_btn_create(label_obj);
     lv_obj_set_size(btn_quit,10,10);
     lv_obj_align_to(btn_quit,label_name,LV_ALIGN_OUT_RIGHT_MID,300,0);
-    lv_obj_set_style_bg_opa(btn_quit, 0, LV_PART_MAIN);                                            /* 去除背景 */
-    lv_obj_set_style_shadow_opa(btn_quit, 0, 0);                                                /* 去除阴影 */
-
+    lv_obj_set_style_bg_opa(btn_quit, 0, LV_PART_MAIN);                                          
+    lv_obj_set_style_shadow_opa(btn_quit, 0, 0);                                              
     lv_obj_t *label = lv_label_create(btn_quit);
     lv_label_set_text(label, LV_SYMBOL_CLOSE); // 设置标签文本为“X”
     lv_obj_center(label); // 将标签居中
     lv_obj_set_style_text_color(label, lv_color_hex(0x3a3a3a), 0);
-
     lv_obj_add_event_cb(btn_quit, lv_calculator_event_handler, LV_EVENT_CLICKED, NULL);
 
 }

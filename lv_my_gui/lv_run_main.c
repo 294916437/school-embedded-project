@@ -274,7 +274,7 @@ static void main_grid(void)
     lv_obj_set_grid_cell(obj, LV_GRID_ALIGN_STRETCH, 3, 1,
                               LV_GRID_ALIGN_STRETCH, 1, 1);
 
-//----------------------------------音乐（保留但改为占位）-------------------------------------------------------------------------
+//----------------------------------音乐-------------------------------------------------------------------------
     obj = lv_obj_create(cont);
     lv_obj_set_style_border_opa(obj,100, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(obj, 25, LV_PART_MAIN);
@@ -293,7 +293,7 @@ static void main_grid(void)
     lv_obj_set_grid_cell(obj, LV_GRID_ALIGN_STRETCH, 4, 1,
                               LV_GRID_ALIGN_STRETCH, 1, 1);
 
-//---------------------------------游戏（替换原控制台功能）-------------------------------------------------------------------------
+//---------------------------------游戏-------------------------------------------------------------------------
     obj = lv_obj_create(cont);
     lv_obj_set_style_border_opa(obj,100, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(obj, 25, LV_PART_MAIN);
@@ -359,7 +359,7 @@ static void main_grid(void)
 
     lv_obj_t *label = lv_label_create(obj);
     lv_label_set_long_mode(label,LV_LABEL_LONG_WRAP);
-    lv_label_set_text(label,"寄存器开发Freertos+LVGL综合界面");
+    lv_label_set_text(label,"LVGL综合界面");
 
     lv_obj_set_style_text_font(label,&mytext18,0);
     lv_obj_set_style_text_color(label,lv_color_hex(0xffffff),0);

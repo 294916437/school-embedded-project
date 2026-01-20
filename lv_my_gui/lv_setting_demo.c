@@ -697,7 +697,7 @@ void lv_setting_about(void)
     lv_obj_align_to(line3,label_software_ver,LV_ALIGN_OUT_BOTTOM_LEFT,0,5);
     lv_obj_set_style_line_color(line3,lv_color_hex(0x696969),0);
     lv_obj_set_style_line_opa(line3,50,0);
-//    /*内核*/
+    /*内核*/
     lv_obj_t *label_kernel_name = lv_label_create(obj_cont2);
     lv_label_set_text(label_kernel_name,"内核");
     lv_obj_set_style_text_font(label_kernel_name,&setting_font_about1,LV_PART_MAIN);
