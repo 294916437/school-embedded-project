@@ -20,9 +20,7 @@ lv_obj_t *lv_setting_client_cont_about;
 lv_obj_t *lv_setting_win_header;    /* 窗口标题 */
 
 /**
- * @brief 退出回调函数
- * @param  event：事件
- * @return 无
+ * 返回到主页面
  */
 static void lv_setting_event_handler(lv_event_t * event)
 {
@@ -35,8 +33,10 @@ static void lv_setting_event_handler(lv_event_t * event)
     }
 }
 
-/*关于界面返回按钮回调函数*/
-static void lv_aboutbtn_event_handler(lv_event_t * event)
+/**
+ * 返回到设置页面
+ */
+static void lv_about_btn_event_handler(lv_event_t * event)
 {
     lv_event_code_t code = lv_event_get_code(event);
 
@@ -47,22 +47,19 @@ static void lv_aboutbtn_event_handler(lv_event_t * event)
     }
 }
 
-/*关于回调函数*/
+/**
+ * 返回到设置中的关于页面
+ */
 static void  lv_about_event_handler(lv_event_t * event)
 {
     lv_event_code_t code = lv_event_get_code(event);
 
     if(code == LV_EVENT_CLICKED)
     {
-        //printf("about open ok\n");
         lv_obj_del(lv_setting_cont);                                    /* 删除窗口 */
         lv_setting_about();
-
     }
 }
-
-
-
 
 
 
@@ -548,7 +545,7 @@ void lv_setting_about(void)
     /* 添加关闭按钮 */
     lv_obj_t *close_btn = lv_win_add_btn(lv_about_cont, LV_SYMBOL_LEFT, 50);
     lv_obj_set_style_text_font(close_btn,&lv_font_montserrat_24,0);
-    lv_obj_add_event_cb(close_btn, lv_aboutbtn_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(close_btn, lv_about_btn_event_handler, LV_EVENT_CLICKED, NULL);
     lv_obj_set_style_text_color(close_btn, lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(close_btn, 0, LV_PART_MAIN);
     lv_obj_set_style_shadow_opa(close_btn, 0, 0);
@@ -585,7 +582,7 @@ void lv_setting_about(void)
 
 
     lv_obj_t *label_about = lv_label_create(img_about);
-    lv_label_set_text(label_about,"LVGL   &   FreeRTOS");
+    lv_label_set_text(label_about,"LVGL");
     lv_obj_set_style_text_font(label_about,&setting_font_about,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_about,lv_color_hex(0xffffff),LV_PART_MAIN);
     lv_obj_center(label_about);
@@ -607,15 +604,15 @@ void lv_setting_about(void)
     lv_obj_align(label_device_name,LV_ALIGN_LEFT_MID,0,0);
 
 
-//    /*设备名称框*/
+    /*设备名称框*/
     lv_obj_t *  obj_device_name = lv_obj_create(obj_cont1);
     lv_obj_set_size(obj_device_name, 300, 65);
     lv_obj_set_style_bg_color(obj_device_name, lv_color_hex(0xffffff), LV_PART_MAIN);
     lv_obj_align(obj_device_name,LV_ALIGN_RIGHT_MID,-10,0);
     lv_obj_set_style_border_opa(obj_device_name,0,0);
-   /*设备名称改名字*/
+    /*设备名称改名字*/
     lv_obj_t *label_device_xname = lv_label_create(obj_device_name);
-    lv_label_set_text(label_device_xname,"Display_exp");
+    lv_label_set_text(label_device_xname,"RK3568-Dev");
     lv_obj_set_style_text_font(label_device_xname,&lv_font_montserrat_20,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_device_xname,lv_color_hex(0x000000),LV_PART_MAIN);
     lv_obj_align(label_device_xname,LV_ALIGN_RIGHT_MID,0,0);
@@ -652,7 +649,7 @@ void lv_setting_about(void)
     lv_obj_align(label_chip_name, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t *label_chip_data = lv_label_create(obj_cont2);
-    lv_label_set_text(label_chip_data,"STM32F429IGT6");
+    lv_label_set_text(label_chip_data,"RK3568");
     lv_obj_set_style_text_font(label_chip_data,&lv_font_montserrat_20,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_chip_data,lv_color_hex(0x000000),LV_PART_MAIN);
     lv_obj_align_to(label_chip_data,label_chip_name, LV_ALIGN_OUT_RIGHT_MID, 350, 0);
@@ -672,7 +669,7 @@ void lv_setting_about(void)
     lv_obj_align_to(label_lvgl_ver, label_chip_name, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20);
 
     lv_obj_t *label_lvgl_data = lv_label_create(obj_cont2);
-    lv_label_set_text(label_lvgl_data,"V8.2.0");
+    lv_label_set_text(label_lvgl_data,"V8.3.0");
     lv_obj_set_style_text_font(label_lvgl_data,&lv_font_montserrat_20,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_lvgl_data,lv_color_hex(0x000000),LV_PART_MAIN);
     lv_obj_align_to(label_lvgl_data, label_chip_data, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 40);
@@ -682,36 +679,18 @@ void lv_setting_about(void)
     lv_obj_align_to(line1,label_lvgl_ver,LV_ALIGN_OUT_BOTTOM_LEFT,0,5);
     lv_obj_set_style_line_color(line1,lv_color_hex(0x696969),0);
     lv_obj_set_style_line_opa(line1,50,0);
-    /*FreeRTOS版本*/
-    lv_obj_t *label_freertos_ver = lv_label_create(obj_cont2);
-    lv_label_set_text(label_freertos_ver,"FreeRTOS版本");
-    lv_obj_set_style_text_font(label_freertos_ver,&setting_font_about1,LV_PART_MAIN);
-    lv_obj_set_style_text_color(label_freertos_ver,lv_color_hex(0x000000),LV_PART_MAIN);
-    lv_obj_align_to(label_freertos_ver, label_lvgl_ver, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20);
-
-    lv_obj_t *label_freertos_data = lv_label_create(obj_cont2);
-    lv_label_set_text(label_freertos_data,"V10.4.6");
-    lv_obj_set_style_text_font(label_freertos_data,&lv_font_montserrat_20,LV_PART_MAIN);
-    lv_obj_set_style_text_color(label_freertos_data,lv_color_hex(0x000000),LV_PART_MAIN);
-    lv_obj_align_to(label_freertos_data, label_lvgl_data, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 40);
-
-    lv_obj_t * line2 = lv_line_create(obj_cont2);
-    lv_line_set_points(line2,line_points,2);
-    lv_obj_align_to(line2,label_freertos_ver,LV_ALIGN_OUT_BOTTOM_LEFT,0,5);
-    lv_obj_set_style_line_color(line2,lv_color_hex(0x696969),0);
-    lv_obj_set_style_line_opa(line2,50,0);
     /*软件版本*/
     lv_obj_t *label_software_ver = lv_label_create(obj_cont2);
     lv_label_set_text(label_software_ver,"软件版本");
     lv_obj_set_style_text_font(label_software_ver,&setting_font_about1,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_software_ver,lv_color_hex(0x000000),LV_PART_MAIN);
-    lv_obj_align_to(label_software_ver, label_freertos_ver, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20);
+    lv_obj_align_to(label_software_ver, label_lvgl_ver, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20);
 
     lv_obj_t *label_software_data = lv_label_create(obj_cont2);
     lv_label_set_text(label_software_data,"V1.0");
     lv_obj_set_style_text_font(label_software_data,&lv_font_montserrat_20,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_software_data,lv_color_hex(0x000000),LV_PART_MAIN);
-    lv_obj_align_to(label_software_data, label_freertos_data, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 40);
+    lv_obj_align_to(label_software_data, label_lvgl_ver, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 40);
 
     lv_obj_t * line3 = lv_line_create(obj_cont2);
     lv_line_set_points(line3,line_points,2);
@@ -817,7 +796,7 @@ void lv_setting_about(void)
     lv_obj_align_to(label_rgblcd_name, label_norfalsh_name, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 20);
 
     lv_obj_t *label_rgblcd_data = lv_label_create(obj_cont2);
-    lv_label_set_text(label_rgblcd_data,"800x480");
+    lv_label_set_text(label_rgblcd_data,"1024x600");
     lv_obj_set_style_text_font(label_rgblcd_data,&lv_font_montserrat_20,LV_PART_MAIN);
     lv_obj_set_style_text_color(label_rgblcd_data,lv_color_hex(0x000000),LV_PART_MAIN);
     lv_obj_align_to(label_rgblcd_data, label_norfalsh_data, LV_ALIGN_OUT_BOTTOM_RIGHT, 0, 40);
