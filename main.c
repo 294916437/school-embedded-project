@@ -9,6 +9,9 @@
 #include "modules/LED.h"
 #include "modules/freetype_font_init.h"
 #include "ui/lvgl_music_gui.c"
+#include "lv_my_gui/lv_run_main.h"
+#include "lv_my_gui/lv_boot_anim.h"
+#include "lv_demos/lv_demo.h"
 
 #define DISP_BUF_SIZE (128 * 1024)
 
@@ -19,7 +22,11 @@ void ui_app_start(void)
     // PNG_Mode();
     // GIF_Mode();
     // car_dashboard_init(&style);
-    music_gui_init(&style);
+    // music_gui_init(&style);
+    // lv_boot_anim_create();
+    lv_run_main();
+    // lv_demo_widgets();
+
 }
 
 uint32_t custom_tick_get(void)

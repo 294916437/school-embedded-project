@@ -6,17 +6,17 @@ CC = aarch64-linux-gcc
 LVGL_DIR_NAME ?= lvgl
 LVGL_DIR ?= ${shell pwd}
 # CFLAGS ?= -O3 -g0 -I$(LVGL_DIR)/ -Wall -Wshadow -Wundef -Wmissing-prototypes -Wno-discarded-qualifiers -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wpointer-arith -fno-strict-aliasing -Wno-error=cpp -Wuninitialized -Wmaybe-uninitialized -Wno-unused-parameter -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-ignored-qualifiers -Wno-error=pedantic -Wno-sign-compare -Wno-error=missing-prototypes -Wdouble-promotion -Wclobbered -Wdeprecated -Wempty-body -Wtype-limits -Wshift-negative-value -Wstack-usage=2048 -Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual -Wmissing-prototypes -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wno-discarded-qualifiers -Wformat-security -Wno-ignored-qualifiers -Wno-sign-compare
-CFLAGS ?= -O3 -g0 -I$(LVGL_DIR)/ -I freetype_tmp/include/freetype2
+CFLAGS ?= -O3 -g0 -I$(LVGL_DIR)/ -I freetype_tmp/include/freetype2 \
+          -Ilvgl -Ilv_drivers -Ilv_demos -Ilv_my_gui -Ilv_my_gui/lv_100ask_sketchpad
 LDFLAGS ?= -lm -L./freetype_tmp/lib/ -lfreetype
-BIN = demo
+BIN = test
 
 
 #Collect the files to compile
 MAINSRC = ./main.c ./modules/LED.c ./modules/buzzer.c ./modules/music_mode.c ./modules/show_img.c ./modules/freetype_font_init.c
 
-
-
-
+# 添加 lv_my_gui 源文件 (包括 asset/font 目录)
+CSRCS += $(shell find lv_my_gui -type f -name '*.c')
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
