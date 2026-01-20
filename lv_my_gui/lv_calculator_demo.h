@@ -3,5 +3,6 @@
 
 
 void lv_calculator_demo_open(void);
+void lv_calculator_demo_close(void);
 
 #endif // _mygui_H

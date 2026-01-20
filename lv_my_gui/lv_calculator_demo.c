@@ -37,6 +37,33 @@ char lv_chx_buf[100];
 lv_obj_t * lv_calculator_background ;    //矩阵按钮背景
 
 
+/**
+ * 返回按钮事件处理（返回主界面）
+ */
+static void lv_calculator_back_event_handler(lv_event_t * event)
+{
+    lv_event_code_t code = lv_event_get_code(event);
+
+    if(code == LV_EVENT_CLICKED)    /* 点击返回 */
+    {
+        lv_obj_del(lv_calculator_background);  // 删除计算器界面
+        lv_run_main();  // 返回主界面
+    }
+}
+
+/**
+ * 关闭计算器并返回主界面（供外部调用）
+ */
+void lv_calculator_demo_close(void)
+{
+    if(lv_calculator_background != NULL)
+    {
+        lv_obj_del(lv_calculator_background);
+        lv_calculator_background = NULL;
+    }
+    lv_run_main();
+}
+
 
 void calc_fmt_show(int x2,const char * buf,uint8_t fmt)
 {
