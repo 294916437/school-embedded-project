@@ -10,6 +10,7 @@
 #include "data.h"
 #include "../modules/buzzer.h"  // 添加蜂鸣器头文件
 #include "../modules/LED.h"  // 添加LED头文件
+#include "lv_run_main.h"
 
 static void *game_logic_func(void *arg);
 void startgame(lv_event_t * e);
@@ -36,8 +37,8 @@ static lv_style_t style_enemy_small,style_enemy_midle,style_enemybullet;
 static lv_obj_t *gametemp,*temp; //游戏暂停, 暂停界面
 static lv_style_t style_gametemp,style_temp;
 
-static lv_obj_t *gameover,*finalscore,*gameexitbt,*gamerestartbt;//结束界面, 最终得分, 退出游戏, 重新开始
-static lv_style_t style_gameover,style_finalscore,style_gameexitbt,style_gamerestartbt;
+static lv_obj_t *gameover,*finalscore,*gameexitbt,*gamerestartbt,*backhomebt;//结束界面, 最终得分, 退出游戏, 重新开始
+static lv_style_t style_gameover,style_finalscore,style_gameexitbt,style_gamerestartbt,style_backhomebtn;
 
 static lv_obj_t *signback,*usr,*passd,*sign_in,*signbt; //登入背景  //用户  //密码  //登入界面  //登入按钮
 static lv_style_t style_signback,style_signin,style_signinbt ;//登入界面
@@ -83,7 +84,7 @@ static obj_state_t prop_state = OBJ_STATE_FREE; //道具状态
 
 //星空主题
 char *sky_theme[] = { 
-    "A:img/background.bmp",
+    "A:img/background.png",
     "A:img/player.bmp",
     "A:img/enemy_m.bmp",
     "A:img/enemy_n.bmp",
@@ -91,13 +92,13 @@ char *sky_theme[] = {
     "A:img/enmy_bullet.bmp",
     "A:img/boom.bmp",
     "A:img/superfire.bmp",
-    "A:img/signin_back.bmp",
-    "A:img/signin.bmp",
+    "A:img/sign_in.png",
     "A:img/signinbt.bmp",
     "A:img/gametemp.bmp",
     "A:img/temp.bmp",
-    "A:img/gameover.bmp",
-    "A:img/restartgame.bmp"
+    "A:img/game_over.png",
+    "A:img/restart.png"
+    "A:img/back_to_home.png",
 };
 /***************************************全局变量定义*******************************************/
 
@@ -216,11 +217,14 @@ static void style_set(){
     lv_style_set_radius(&style_setting_panel, 10);
     lv_style_set_bg_opa(&style_setting_panel, LV_OPA_90);
 
-    // 新增：退出按钮样式
+    // 退出按钮样式
     lv_style_init(&style_gameexitbt);
     lv_style_set_bg_opa(&style_gameexitbt, LV_OPA_0);
 
-    
+    // 回到主页按钮样式
+    lv_style_init(&style_backhomebtn);
+    lv_style_set_bg_opa(&style_backhomebtn, LV_OPA_0);
+
 }
 
 
@@ -415,6 +419,56 @@ void pause_game(lv_event_t *e) {
         }
     }
 }
+static void lv_game_event_handler(lv_event_t * event)
+{
+    lv_obj_t* obj = lv_event_get_target(event);
+    lv_event_code_t code = lv_event_get_code(event);
+
+    if(code == LV_EVENT_CLICKED)
+    {
+        // ========== 第1步：清理硬件资源 ==========
+        buzz_ctrl(0, 0);  // 关闭蜂鸣器
+        
+        if (led_blink_timer) {
+            lv_timer_del(led_blink_timer);
+            led_blink_timer = NULL;
+        }
+        led_blinking = false;
+        led_ctrl(-1, 0);  // 关闭所有LED
+
+        // ========== 第2步：保存游戏数据 ==========
+        if(usr_str != NULL && passd_str != NULL) {
+            update_score((char *)usr_str, game_score);
+        }
+
+        // ========== 第3步：标记游戏结束 ==========
+        GAME_OVER = 1;
+        usr_str = NULL;
+        passd_str = NULL;
+
+        // ========== 第4步：清理线程资源 ==========
+        if (game_timer) {
+            lv_timer_del(game_timer);
+            game_timer = NULL;
+        }
+
+        if (game_logic_thread != 0) {
+            pthread_join(game_logic_thread, NULL);
+            game_logic_thread = 0;
+        }
+
+        sem_destroy(&logic_sem);
+        pthread_mutex_destroy(&game_mutex);
+
+        // ========== 第5步：删除游戏界面 ==========
+        lv_obj_del(screen);  // 删除整个游戏屏幕（包含所有子对象）
+        
+        // ========== 第6步：重建主界面 ==========
+        main_grid(&style);  // 调用主菜单创建函数
+        
+        printf("已返回主界面\n");
+    }
+}
 
 //游戏重新开始
 void restartgame(lv_event_t *e) {
@@ -588,6 +642,14 @@ static void creat_background_player() {
     lv_obj_align(gamerestartbt,LV_ALIGN_BOTTOM_MID,0,0);
     lv_obj_add_style(gamerestartbt,&style_gamerestartbt,LV_STATE_DEFAULT);
     lv_obj_add_event_cb(gamerestartbt,restartgame,LV_EVENT_CLICKED,NULL);
+
+    // ========== 返回主页按钮 ==========
+    backhomebt = lv_btn_create(gameover);
+    lv_obj_remove_style_all(backhomebt);
+    lv_obj_set_size(backhomebt, 200, 100);
+    lv_obj_align(backhomebt, LV_ALIGN_BOTTOM_MID, 120, 0);
+    lv_obj_add_style(gamerestartbt,&style_backhomebtn,LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(backhomebt, lv_game_event_handler, LV_EVENT_CLICKED, NULL);
 
     // 创建结束界面分数标签（居中显示）
     finalscore = lv_label_create(gameover);
