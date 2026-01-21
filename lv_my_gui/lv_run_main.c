@@ -5,7 +5,9 @@
 #include "lv_setting_demo.h"
 #include "lv_calculator_demo.h"
 #include "lv_video_demo.h"
+#include "lv_image_demo.h"
 #include "airplane/air.h"
+
 
 LV_FONT_DECLARE(main_imgfont);
 LV_FONT_DECLARE(main_clock);
@@ -28,7 +30,7 @@ lv_obj_t* cont;  //主界面 容器(父类)
 
 //---------------------------------------------------------------------------------------------------------------------
 
-// 游戏入口回调（替换原控制台功能）
+// 游戏入口回调
 static void lv_event_game_cb(lv_event_t *event)
 {
     lv_event_code_t code = lv_event_get_code(event);
@@ -47,7 +49,7 @@ static void lv_event_game_cb(lv_event_t *event)
     }
 }
 
-// 视频入口回调（替换原音乐功能）
+// 视频入口回调
 static void lv_event_video_cb(lv_event_t *event)
 {
     lv_event_code_t code = lv_event_get_code(event);
@@ -63,6 +65,24 @@ static void lv_event_video_cb(lv_event_t *event)
         }
         // 初始化视频界面
         video_init();
+    }
+}
+// 图像入口回调
+static void lv_event_image_cb(lv_event_t *event)
+{
+    lv_event_code_t code = lv_event_get_code(event);
+
+    if(code == LV_EVENT_CLICKED)
+    {
+        printf("image\n");
+        // 清理当前界面
+        lv_obj_del(tileview);
+        // 清理顶层（如果有）
+        if(lv_layer_top()) {
+            lv_obj_clean(lv_layer_top());
+        }
+        // 创建相册界面();
+        lv_image_demo_create();  
     }
 }
 
@@ -274,6 +294,7 @@ void main_grid(lv_style_t * style)
      *========================================*/
     lv_obj_t *obj;
     CREATE_APP_TILE(cont, &main_photo, "相册", 3, 0, 1, 1);
+    lv_obj_add_event_cb(obj, lv_event_image_cb, LV_EVENT_CLICKED, NULL);
 
     /*========================================
      * 第二行：视频、音乐、游戏

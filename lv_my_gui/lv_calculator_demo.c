@@ -3,7 +3,6 @@
 #include "stdio.h"
 #include "stdlib.h"
 #include <ctype.h>
-
 #include "lv_run_main.h"
 
 LV_FONT_DECLARE(calculator_text);
