@@ -1,7 +1,6 @@
 #include "lv_run_main.h"
 #include "lvgl.h"
 
-#include "lv_boot_anim.h"
 #include "lv_setting_demo.h"
 #include "lv_calculator_demo.h"
 #include "lv_video_demo.h"
@@ -12,6 +11,7 @@
 LV_FONT_DECLARE(main_imgfont);
 LV_FONT_DECLARE(main_clock);
 LV_FONT_DECLARE(mytext18);
+LV_FONT_DECLARE(mian_date_font);
 
 LV_IMG_DECLARE(main_bg1);
 LV_IMG_DECLARE(main_photo);
@@ -151,6 +151,7 @@ void main_grid(lv_style_t * style)
     /*========================================
      * 第一行：时间日期模块（跨3列）
      *========================================*/
+    
     lv_obj_t *obj_time = lv_btn_create(cont);
     lv_obj_set_style_bg_color(obj_time, lv_color_hex(0xffffff), 0);
     lv_obj_set_style_bg_opa(obj_time, 30, LV_PART_MAIN);
@@ -162,8 +163,6 @@ void main_grid(lv_style_t * style)
     lv_obj_set_style_shadow_opa(obj_time, 80, LV_PART_MAIN);
     lv_obj_set_style_shadow_color(obj_time, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_add_state(obj_time, LV_STATE_DISABLED);
-
-    LV_FONT_DECLARE(mian_date_font);
 
     /* 日期显示 - 紧凑布局 */
     lv_obj_t *label_date_year0 = lv_label_create(obj_time);
