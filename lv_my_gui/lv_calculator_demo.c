@@ -47,7 +47,7 @@ static void lv_calculator_event_handler(lv_event_t * event)
     if(code == LV_EVENT_CLICKED)    /*点击 */
     {
         lv_obj_del(lv_calculator_background);
-        lv_run_main();
+        main_grid();
     }
 }
 
@@ -61,7 +61,7 @@ void lv_calculator_demo_close(void)
         lv_obj_del(lv_calculator_background);
         lv_calculator_background = NULL;
     }
-    lv_run_main();
+    main_grid();
 }
 
 
@@ -332,102 +332,101 @@ static void lv_event_handler(lv_event_t *event)
 
 void lv_calculator_demo(void)
 {
+    /* 创建主容器 - 使用窗口方式 */
+    lv_calculator_background = lv_win_create(lv_scr_act(), 80);
+    lv_obj_set_size(lv_calculator_background, lv_obj_get_width(lv_scr_act()), lv_obj_get_height(lv_scr_act()));
 
-    lv_calculator_background = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(lv_calculator_background,lv_obj_get_width(lv_scr_act()),lv_obj_get_height(lv_scr_act()));
-    lv_obj_set_style_radius(lv_calculator_background, 0, LV_PART_MAIN);
-    lv_obj_clear_flag(lv_calculator_background, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(lv_calculator_background, lv_color_make(1, 27, 54), LV_STATE_DEFAULT);
+    /* 添加返回按钮 */
+    lv_obj_t *close_btn = lv_win_add_btn(lv_calculator_background, LV_SYMBOL_LEFT, 50);
+    lv_obj_set_style_text_font(close_btn, &lv_font_montserrat_24, 0);
+    lv_obj_add_event_cb(close_btn, lv_calculator_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_style_text_color(close_btn, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(close_btn, 0, LV_PART_MAIN);           /* 去除背景 */
+    lv_obj_set_style_shadow_opa(close_btn, 0, 0);                  /* 去除阴影 */
+    lv_obj_align(close_btn, LV_ALIGN_RIGHT_MID, 0, 0);
 
-    lv_obj_t * btnm = lv_btnmatrix_create(lv_calculator_background);
-    lv_btnmatrix_set_map(btnm, kb_map_num);    //设置按键数组,前面必须定义数组
+    /* 设置标题 */
+    lv_obj_t *title = lv_win_add_title(lv_calculator_background, "计算器");
+    lv_obj_set_style_text_font(title, &calculator_text, LV_PART_MAIN);
 
+    /* 标题右侧占位字符，为了优化布局 */
+    lv_obj_t *null_btn = lv_win_add_btn(lv_calculator_background, " ", 50);
+    lv_obj_set_style_bg_opa(null_btn, 0, 0);
+    lv_obj_set_style_shadow_opa(null_btn, 0, 0);
 
-    lv_btnmatrix_set_btn_width(btnm, 0, 1);         /*7*/
-    lv_btnmatrix_set_btn_width(btnm, 1, 1);         /*8*/
-    lv_btnmatrix_set_btn_width(btnm, 2, 1);         /*9*/
-    lv_btnmatrix_set_btn_width(btnm, 3, 1);         /*DEL*/
-    lv_btnmatrix_set_btn_width(btnm, 4, 1);         /*AC*/
+    /* 获取标题栏 */
+    lv_obj_t *win_header = lv_win_get_header(lv_calculator_background);
+    lv_obj_set_style_bg_color(win_header, lv_color_hex(0xe9e9e9), LV_PART_MAIN);
 
-    lv_btnmatrix_set_btn_width(btnm, 5, 1);         /*4*/
-    lv_btnmatrix_set_btn_width(btnm, 6, 1);         /*5*/
-    lv_btnmatrix_set_btn_width(btnm, 7, 1);         /*6*/
-    lv_btnmatrix_set_btn_width(btnm, 8, 1);         /*+*/
-    lv_btnmatrix_set_btn_width(btnm, 9, 1);         /*-*/
-
-    lv_btnmatrix_set_btn_width(btnm, 10, 2);        /*1*/
-    lv_btnmatrix_set_btn_width(btnm, 11, 2);        /*2*/
-    lv_btnmatrix_set_btn_width(btnm, 12, 2);        /*3*/
-    lv_btnmatrix_set_btn_width(btnm, 13, 2);        /* * */
-    lv_btnmatrix_set_btn_width(btnm, 14, 2);        /*/*/
-
-    lv_btnmatrix_set_btn_width(btnm, 15, 2);        /*0*/
-    lv_btnmatrix_set_btn_width(btnm, 16, 2);        /*.*/
-    lv_btnmatrix_set_btn_width(btnm, 17, 2);        /*%*/
-    lv_btnmatrix_set_btn_width(btnm, 18, 2);        /*=*/
-
-
-    lv_btnmatrix_set_btn_ctrl(btnm,8,LV_BTNMATRIX_CTRL_RECOLOR);
-    lv_btnmatrix_set_btn_ctrl(btnm,9,LV_BTNMATRIX_CTRL_RECOLOR);
-    lv_btnmatrix_set_btn_ctrl(btnm,13,LV_BTNMATRIX_CTRL_RECOLOR);
-    lv_btnmatrix_set_btn_ctrl(btnm,14,LV_BTNMATRIX_CTRL_RECOLOR);
-    lv_btnmatrix_set_btn_ctrl(btnm,18,LV_BTNMATRIX_CTRL_RECOLOR);
-
-    lv_obj_set_size(btnm,lv_obj_get_width(lv_scr_act()), lv_obj_get_height(lv_scr_act())/1.6);
-    lv_obj_align(btnm,LV_ALIGN_BOTTOM_MID,0,20);
-    lv_obj_set_style_bg_color(btnm,lv_color_hex(0xFFFFFF),LV_PART_ITEMS);
-    lv_obj_set_style_radius(btnm,0,0);
-    lv_obj_set_style_border_opa(btnm,100,0);
-
-    lv_obj_add_event_cb(btnm, lv_event_handler, LV_EVENT_ALL, NULL);
-
+    /* 获取内容容器 */
+    lv_calculator_client_cont = lv_win_get_content(lv_calculator_background);
+    lv_obj_set_scrollbar_mode(lv_calculator_client_cont, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_style_bg_color(lv_calculator_client_cont, lv_color_make(1, 27, 54), LV_PART_MAIN);
+    lv_obj_set_style_pad_left(lv_calculator_client_cont, 0, LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_right(lv_calculator_client_cont, 0, LV_STATE_DEFAULT);
 
     /* 创建输入框 */
-    phone_ta = lv_textarea_create(lv_calculator_background);
+    phone_ta = lv_textarea_create(lv_calculator_client_cont);
     lv_textarea_set_text(phone_ta, "0");
-    lv_textarea_set_one_line(phone_ta, true);           /* 将文本区域配置为一行或恢复正常 */
-    lv_textarea_set_cursor_click_pos(phone_ta,false);   /* 隐藏光标 */
-    lv_obj_set_size(phone_ta, lv_obj_get_width(lv_scr_act()),130);
+    lv_textarea_set_one_line(phone_ta, true);
+    lv_textarea_set_cursor_click_pos(phone_ta, false);
+    lv_obj_set_size(phone_ta, lv_obj_get_width(lv_scr_act()), 130);
     lv_obj_clear_flag(phone_ta, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align_to(phone_ta, btnm, LV_ALIGN_OUT_TOP_MID, 0, 0);
-    lv_obj_set_style_text_font(phone_ta,&lv_font_montserrat_24,0);
-    lv_obj_set_style_radius(phone_ta,0,0);
-    lv_obj_set_style_bg_opa(phone_ta,250,0);
-    lv_obj_set_style_border_opa(phone_ta,100,0);
+    lv_obj_align(phone_ta, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_set_style_text_font(phone_ta, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_radius(phone_ta, 0, 0);
+    lv_obj_set_style_bg_opa(phone_ta, 250, 0);
+    lv_obj_set_style_border_opa(phone_ta, 100, 0);
 
+    /* 运算符标签 */
+    label_dec = lv_label_create(lv_calculator_client_cont);
+    lv_label_set_text(label_dec, " ");
+    lv_obj_set_style_text_font(label_dec, &lv_font_montserrat_14, 0);
+    lv_obj_align_to(label_dec, phone_ta, LV_ALIGN_BOTTOM_RIGHT, -50, -10);
 
-    /*运算符**/
-    label_dec = lv_label_create(lv_calculator_background);
-    lv_label_set_text(label_dec," ");
-    lv_obj_set_style_text_font(label_dec,&lv_font_montserrat_14,0);
-    lv_obj_align_to(label_dec,phone_ta,LV_ALIGN_BOTTOM_RIGHT,-50,-10);
+    /* 创建按键矩阵 */
+    lv_obj_t *btnm = lv_btnmatrix_create(lv_calculator_client_cont);
+    lv_btnmatrix_set_map(btnm, kb_map_num);
 
-    /*标题文字*/
-    lv_obj_t *label_obj = lv_obj_create(lv_calculator_background);
-    lv_obj_set_size(label_obj,lv_obj_get_width(lv_scr_act()),50);
-    lv_obj_align_to(label_obj,phone_ta,LV_ALIGN_OUT_TOP_MID,0,0);
-    lv_obj_set_style_radius(label_obj,0,0);
-    lv_obj_set_style_bg_opa(label_obj, 0, LV_PART_MAIN);
+    /* 设置按钮宽度 */
+    lv_btnmatrix_set_btn_width(btnm, 0, 1);         /* 7 */
+    lv_btnmatrix_set_btn_width(btnm, 1, 1);         /* 8 */
+    lv_btnmatrix_set_btn_width(btnm, 2, 1);         /* 9 */
+    lv_btnmatrix_set_btn_width(btnm, 3, 1);         /* DEL */
+    lv_btnmatrix_set_btn_width(btnm, 4, 1);         /* AC */
 
-    lv_obj_t *label_name = lv_label_create(label_obj);
-    lv_label_set_text(label_name,"计算器");
-    lv_obj_set_style_text_letter_space(label_name, 2, LV_PART_MAIN);  //字间距
-    lv_obj_set_style_text_line_space(label_name,0,LV_PART_MAIN);      //行间距
-    lv_obj_set_style_text_font(label_name,&calculator_text,0);
-    lv_obj_align(label_name,LV_ALIGN_TOP_MID,0,-10);
+    lv_btnmatrix_set_btn_width(btnm, 5, 1);         /* 4 */
+    lv_btnmatrix_set_btn_width(btnm, 6, 1);         /* 5 */
+    lv_btnmatrix_set_btn_width(btnm, 7, 1);         /* 6 */
+    lv_btnmatrix_set_btn_width(btnm, 8, 1);         /* + */
+    lv_btnmatrix_set_btn_width(btnm, 9, 1);         /* - */
 
-    /*关闭按钮*/
-    lv_obj_t *btn_quit = lv_btn_create(label_obj);
-    lv_obj_set_size(btn_quit,10,10);
-    lv_obj_align_to(btn_quit,label_name,LV_ALIGN_OUT_RIGHT_MID,300,0);
-    lv_obj_set_style_bg_opa(btn_quit, 0, LV_PART_MAIN);                                          
-    lv_obj_set_style_shadow_opa(btn_quit, 0, 0);                                              
-    lv_obj_t *label = lv_label_create(btn_quit);
-    lv_label_set_text(label, LV_SYMBOL_CLOSE); // 设置标签文本为“X”
-    lv_obj_center(label); // 将标签居中
-    lv_obj_set_style_text_color(label, lv_color_hex(0x3a3a3a), 0);
-    lv_obj_add_event_cb(btn_quit, lv_calculator_event_handler, LV_EVENT_CLICKED, NULL);
+    lv_btnmatrix_set_btn_width(btnm, 10, 2);        /* 1 */
+    lv_btnmatrix_set_btn_width(btnm, 11, 2);        /* 2 */
+    lv_btnmatrix_set_btn_width(btnm, 12, 2);        /* 3 */
+    lv_btnmatrix_set_btn_width(btnm, 13, 2);        /* * */
+    lv_btnmatrix_set_btn_width(btnm, 14, 2);        /* / */
 
+    lv_btnmatrix_set_btn_width(btnm, 15, 2);        /* 0 */
+    lv_btnmatrix_set_btn_width(btnm, 16, 2);        /* . */
+    lv_btnmatrix_set_btn_width(btnm, 17, 2);        /* % */
+    lv_btnmatrix_set_btn_width(btnm, 18, 2);        /* = */
+
+    /* 设置按钮颜色控制 */
+    lv_btnmatrix_set_btn_ctrl(btnm, 8, LV_BTNMATRIX_CTRL_RECOLOR);
+    lv_btnmatrix_set_btn_ctrl(btnm, 9, LV_BTNMATRIX_CTRL_RECOLOR);
+    lv_btnmatrix_set_btn_ctrl(btnm, 13, LV_BTNMATRIX_CTRL_RECOLOR);
+    lv_btnmatrix_set_btn_ctrl(btnm, 14, LV_BTNMATRIX_CTRL_RECOLOR);
+    lv_btnmatrix_set_btn_ctrl(btnm, 18, LV_BTNMATRIX_CTRL_RECOLOR);
+
+    /* 设置按键矩阵样式 */
+    lv_obj_set_size(btnm, lv_obj_get_width(lv_scr_act()), lv_obj_get_height(lv_scr_act()) / 1.8);
+    lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, -10);
+    lv_obj_set_style_bg_color(btnm, lv_color_hex(0xFFFFFF), LV_PART_ITEMS);
+    lv_obj_set_style_radius(btnm, 0, 0);
+    lv_obj_set_style_border_opa(btnm, 100, 0);
+
+    lv_obj_add_event_cb(btnm, lv_event_handler, LV_EVENT_ALL, NULL);
 }
 
 
