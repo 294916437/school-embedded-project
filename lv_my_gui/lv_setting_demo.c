@@ -31,7 +31,7 @@ static void lv_setting_event_handler(lv_event_t * event)
     if(code == LV_EVENT_CLICKED)    /*点击 */
     {
         lv_obj_del(lv_setting_cont);
-        main_grid();  //回归主界面
+        main_grid(&style);  //回归主界面
     }
 }
 

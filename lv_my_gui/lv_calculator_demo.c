@@ -47,7 +47,7 @@ static void lv_calculator_event_handler(lv_event_t * event)
     if(code == LV_EVENT_CLICKED)    /*点击 */
     {
         lv_obj_del(lv_calculator_background);
-        main_grid();
+        main_grid(&style);
     }
 }
 
@@ -61,7 +61,7 @@ void lv_calculator_demo_close(void)
         lv_obj_del(lv_calculator_background);
         lv_calculator_background = NULL;
     }
-    main_grid();
+    main_grid(&style);
 }
 
 

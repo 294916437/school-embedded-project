@@ -329,7 +329,7 @@ static void backhome(lv_event_t *e)
     }
     
     // 返回主界面
-    main_grid();
+    main_grid(&style);
 }
 
 //+音量
@@ -659,7 +659,7 @@ void video_demo_close(void)
         video_screen = NULL;
     }
     
-    main_grid();
+    main_grid(&style);
 }
 
 // 清理视频资源

@@ -93,7 +93,7 @@ static void lv_event_setting_cb(lv_event_t *event)
 }
 
 //-----------------------------------------------------------------
-void main_grid(void)
+void main_grid(lv_style_t * style)
 {
     /* 网格布局定义 - 4列3行，针对1024x600优化 */
     static lv_coord_t col_dsc[] = { 200, 160, 160, 160, LV_GRID_TEMPLATE_LAST };
@@ -205,31 +205,32 @@ void main_grid(void)
     lv_obj_set_style_text_font(label_time_hour, &main_clock, LV_PART_MAIN);
     lv_label_set_text(label_time_hour, "23");
     lv_obj_set_style_text_color(label_time_hour, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align(label_time_hour, LV_ALIGN_BOTTOM_LEFT, 30, -10);
+    lv_obj_align(label_time_hour, LV_ALIGN_BOTTOM_LEFT, 30, -15); // 增加底部偏移
 
     lv_obj_t *label_time_lab1 = lv_label_create(obj_time);
     lv_obj_set_style_text_font(label_time_lab1, &main_clock, LV_PART_MAIN);
     lv_label_set_text(label_time_lab1, ":");
     lv_obj_set_style_text_color(label_time_lab1, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_lab1, label_time_hour, LV_ALIGN_OUT_RIGHT_BOTTOM, 3, 0);
+    // 修正：使用 OUT_RIGHT_BOTTOM 确保基线对齐
+    lv_obj_align_to(label_time_lab1, label_time_hour, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
     lv_obj_t *label_time_min = lv_label_create(obj_time);
     lv_obj_set_style_text_font(label_time_min, &main_clock, LV_PART_MAIN);
     lv_label_set_text(label_time_min, "12");
     lv_obj_set_style_text_color(label_time_min, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_min, label_time_lab1, LV_ALIGN_OUT_RIGHT_BOTTOM, 3, 0);
+    lv_obj_align_to(label_time_min, label_time_lab1, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
     lv_obj_t *label_time_lab2 = lv_label_create(obj_time);
     lv_obj_set_style_text_font(label_time_lab2, &main_clock, LV_PART_MAIN);
     lv_label_set_text(label_time_lab2, ":");
     lv_obj_set_style_text_color(label_time_lab2, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_lab2, label_time_min, LV_ALIGN_OUT_RIGHT_BOTTOM, 3, 0);
+    lv_obj_align_to(label_time_lab2, label_time_min, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
     lv_obj_t *label_time_sec = lv_label_create(obj_time);
     lv_obj_set_style_text_font(label_time_sec, &main_clock, LV_PART_MAIN);
     lv_label_set_text(label_time_sec, "30");
     lv_obj_set_style_text_color(label_time_sec, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_sec, label_time_lab2, LV_ALIGN_OUT_RIGHT_BOTTOM, 3, 0);
+    lv_obj_align_to(label_time_sec, label_time_lab2, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
     lv_obj_set_grid_cell(obj_time, LV_GRID_ALIGN_STRETCH, 0, 3,
                          LV_GRID_ALIGN_STRETCH, 0, 1);
@@ -282,7 +283,7 @@ void main_grid(void)
 
     CREATE_APP_TILE(cont, &main_music, "音乐", 2, 1, 1, 1);
 
-    CREATE_APP_TILE(cont, "A:img/game.bmp", "游戏", 3, 1, 1, 1);
+    CREATE_APP_TILE(cont, "A:img/game-icon.bmp", "PlaneGame", 3, 1, 1, 1);
     lv_obj_add_event_cb(obj, lv_event_game_cb, LV_EVENT_CLICKED, NULL);
 
     /*========================================
