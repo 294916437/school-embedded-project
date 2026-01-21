@@ -93,12 +93,13 @@ char *sky_theme[] = {
     "A:img/boom.bmp",
     "A:img/superfire.bmp",
     "A:img/sign_in.png",
+    "A:img/signin.bmp",
     "A:img/signinbt.bmp",
     "A:img/gametemp.bmp",
     "A:img/temp.bmp",
     "A:img/game_over.png",
-    "A:img/restart.png"
-    "A:img/back_to_home.png",
+    "A:img/restart.png",
+    "A:img/back_to_home.png"
 };
 /***************************************全局变量定义*******************************************/
 

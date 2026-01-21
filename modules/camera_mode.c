@@ -10,10 +10,12 @@ static int camera_fd = -1;
 static int lcd_fd = -1;
 static int *lcd_memory = NULL;
 static int buf_count = 4;
+static int *argb_buffer = NULL;
+static int system_initialized = 0;
 static struct buffer_info camera_buffers[4] = {0};
 static struct camera_config cam_cfg = {640, 480};
+static camera_display_callback_t custom_display_callback = NULL;
 static struct display_config disp_cfg = {1024, 600, (1024-640)/2, (600-480)/2};
-static int *argb_buffer = NULL;
 
 // 原信号处理函数（保留）
 void sig_handler(int signo) {
@@ -243,7 +245,7 @@ void display_camera_frame(int *argb_buffer, int *lcd_mem,
     }
 }
 
-// 原释放资源函数（调整为内部静态函数）
+// 原释放资源函数
 static void release_resources(void) {
     exit_flag = 1;
     camera_running_flag = 0;
@@ -258,21 +260,33 @@ static void release_resources(void) {
     for (int i = 0; i < buf_count; i++) {
         if (camera_buffers[i].start != NULL && camera_buffers[i].start != MAP_FAILED) {
             munmap(camera_buffers[i].start, camera_buffers[i].length);
+            camera_buffers[i].start = NULL;  // 置空指针
         }
     }
 
     // 解除LCD内存映射
     if (lcd_memory != NULL && lcd_memory != MAP_FAILED) {
         munmap(lcd_memory, disp_cfg.lcd_width * disp_cfg.lcd_height * 4);
+        lcd_memory = NULL;  // 置空指针
     }
 
     // 关闭文件描述符
-    if (camera_fd > 0) close(camera_fd);
-    if (lcd_fd > 0) close(lcd_fd);
+    if (camera_fd > 0) {
+        close(camera_fd);
+        camera_fd = -1;  // 重置为无效值
+    }
+    if (lcd_fd > 0) {
+        close(lcd_fd);
+        lcd_fd = -1;  // 重置为无效值
+    }
 
     // 释放ARGB缓冲区
-    if (argb_buffer != NULL) free(argb_buffer);
+    if (argb_buffer != NULL) {
+        free(argb_buffer);
+        argb_buffer = NULL;  // 置空指针
+    }
 
+    system_initialized = 0;  // 重置初始化标志
     printf("摄像头资源释放完成\n");
 }
 
@@ -280,6 +294,13 @@ static void release_resources(void) {
 int camera_system_init(void)
 {
     int ret;
+    
+    // 防止重复初始化
+    if (system_initialized) {
+        printf("摄像头系统已初始化，跳过重复初始化\n");
+        return 0;
+    }
+    
     // 分配ARGB缓冲区
     argb_buffer = malloc(cam_cfg.width * cam_cfg.height * sizeof(int));
     if (argb_buffer == NULL)
@@ -293,6 +314,7 @@ int camera_system_init(void)
     if (ret != 0)
     {
         free(argb_buffer);
+        argb_buffer = NULL;
         return -1;
     }
 
@@ -301,13 +323,27 @@ int camera_system_init(void)
     if (ret != 0)
     {
         munmap(lcd_memory, disp_cfg.lcd_width * disp_cfg.lcd_height * 4);
+        lcd_memory = NULL;
         close(lcd_fd);
+        lcd_fd = -1;
         free(argb_buffer);
+        argb_buffer = NULL;
         return -1;
     }
 
     exit_flag = 0;
+    system_initialized = 1;  // 标记为已初始化
     return 0;
+}
+int* camera_get_current_frame(void)
+{
+    return argb_buffer;
+}
+
+// 在文件末尾添加新接口实现
+void camera_set_display_callback(camera_display_callback_t callback)
+{
+    custom_display_callback = callback;
 }
 
 // 摄像头采集循环（线程执行函数）
@@ -316,7 +352,7 @@ void *camera_collect_loop(void *arg)
     int ret;
     struct v4l2_buffer v4l2_buf;
     camera_running_flag = 1;
-    printf("摄像头采集线程启动（按关闭按钮停止）...\n");
+    printf("摄像头采集线程启动...\n");
 
     while (!exit_flag && camera_running_flag)
     {
@@ -327,24 +363,28 @@ void *camera_collect_loop(void *arg)
             v4l2_buf.memory = V4L2_MEMORY_MMAP;
             v4l2_buf.index = i;
 
-            // 取出缓冲区（非阻塞，避免卡死）
             ret = ioctl(camera_fd, VIDIOC_DQBUF, &v4l2_buf);
-            if (ret == -1)
-            {
+            if (ret == -1) {
                 if (errno == EAGAIN) continue;
-                perror("从队列取出缓冲区失败");
+                perror("取出缓冲区失败");
                 camera_running_flag = 0;
                 break;
             }
 
-            // 格式转换+显示
+            // 格式转换
             convert_yuyv_to_argb(camera_buffers[i].start, argb_buffer, cam_cfg.width, cam_cfg.height);
-            display_camera_frame(argb_buffer, lcd_memory, &cam_cfg, disp_cfg);
+            
+            // ========== 修改显示逻辑 ==========
+            if (custom_display_callback) {
+                // 使用自定义回调（LVGL显示）
+                custom_display_callback(argb_buffer, cam_cfg.width, cam_cfg.height);
+            } else {
+                // 使用默认LCD显示
+                display_camera_frame(argb_buffer, lcd_memory, &cam_cfg, disp_cfg);
+            }
 
-            // 缓冲区重新入队
             ret = ioctl(camera_fd, VIDIOC_QBUF, &v4l2_buf);
-            if (ret == -1)
-            {
+            if (ret == -1) {
                 perror("缓冲区重新入队失败");
                 camera_running_flag = 0;
                 break;
@@ -373,9 +413,22 @@ void camera_system_run(void)
 void camera_system_stop(void)
 {
     if (!camera_running_flag) return;
+    
+    printf("正在停止摄像头采集...\n");
     camera_running_flag = 0;
     exit_flag = 1;
-    pthread_join(camera_thread, NULL); // 等待线程退出
+    
+    // 等待线程退出（添加超时机制）
+    struct timespec timeout;
+    timeout.tv_sec += 2;  // 2秒超时
+    
+    int ret = pthread_timedjoin_np(camera_thread, NULL, &timeout);
+    if (ret == ETIMEDOUT) {
+        printf("警告：摄像头线程未能在规定时间内退出\n");
+        pthread_cancel(camera_thread);  // 强制取消线程
+    }
+    
+    printf("摄像头采集已停止\n");
 }
 
 // 对外接口：释放摄像头系统资源
