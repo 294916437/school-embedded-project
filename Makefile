@@ -13,7 +13,7 @@ BIN = test
 
 
 #Collect the files to compile
-MAINSRC = ./main.c ./modules/LED.c ./modules/buzzer.c ./modules/music_mode.c ./modules/show_img.c ./modules/freetype_font_init.c
+MAINSRC = ./main.c ./modules/LED.c ./modules/buzzer.c ./modules/music_mode.c ./modules/show_img.c ./modules/freetype_font_init.c ./modules/camera_mode.c
 
 # 添加 lv_my_gui 源文件 (包括 asset/font 目录)
 CSRCS += $(shell find lv_my_gui -type f -name '*.c')
