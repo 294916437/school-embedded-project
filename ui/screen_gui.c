@@ -94,7 +94,6 @@ void User_Settings_Mode(lv_style_t * style)
 //主要界面功能
 void Screen_Icon_Mode(lv_style_t * style)
 {
-    Font_Freetyle_Init("simfang.ttf", 26, &style);
     Screen = lv_scr_act();
 
     Reversing_Radar_Camera_Mode(&style);

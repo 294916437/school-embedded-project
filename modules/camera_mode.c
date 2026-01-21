@@ -1,329 +1,405 @@
 #include "camera_mode.h"
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <linux/videodev2.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
 
-// ========== 内部全局变量 ==========
-static int cam_fd = -1;
-static uint8_t *cam_buf = NULL;
-static bool capture_running = false;
-static void *mmap_buffers[4] = {NULL};
-static unsigned int mmap_lengths[4] = {0};
+// 全局变量（供GUI模块控制）
+int camera_running_flag = 0;     // 摄像头运行标志（0:停止 1:运行）
+pthread_t camera_thread;         // 摄像头采集线程
 
-// 状态变量
-static int frame_count = 0;
-static int current_fps = 0;
-static int retry_count = 0;
-static time_t last_error_time = 0;
-static time_t last_fps_calc_time = 0;
+// 静态全局变量（摄像头内部使用）
+static int exit_flag = 0;
+static int camera_fd = -1;
+static int lcd_fd = -1;
+static int *lcd_memory = NULL;
+static int buf_count = 4;
+static struct buffer_info camera_buffers[4] = {0};
+static struct camera_config cam_cfg = {640, 480};
+static struct display_config disp_cfg = {1024, 600, (1024-640)/2, (600-480)/2};
+static int *argb_buffer = NULL;
 
-// ========== 内部函数声明 ==========
-static int cam_hw_init(void);
-static void cam_hw_deinit(void);
-static int cam_hw_capture_frame(uint8_t *buf, uint32_t buf_size);
+// 原信号处理函数（保留）
+void sig_handler(int signo) {
+    if (signo == SIGINT) {
+        printf("\n收到退出信号，准备释放资源...\n");
+        exit_flag = 1;
+        camera_running_flag = 0;
+    }
+}
 
-// ========== 核心接口实现 ==========
-int video_capture_init(void)
+// 原YUV转ARGB函数（保留）
+int yuv_to_argb(int y, int u, int v)
 {
-    // 先释放已有资源
-    if (cam_fd >= 0 || cam_buf != NULL) 
+    int r, g, b;
+    int pixel;
+    r = y + 1.4075 * (v - 128);
+    g = y - 0.3455 * (u - 128) - 0.7169 * (v - 128);
+    b = y + 1.779 * (u - 128);
+    r = (r > 255) ? 255 : (r < 0) ? 0 : r;
+    g = (g > 255) ? 255 : (g < 0) ? 0 : g;
+    b = (b > 255) ? 255 : (b < 0) ? 0 : b;
+    pixel = (0x00 << 24) | (r << 16) | (g << 8) | b;
+    return pixel;
+}
+
+// 原YUYV转ARGB函数（保留）
+int convert_yuyv_to_argb(char *yuyv_data, int *argb_data, int width, int height)
+{
+    int i, j;
+    int total_pixels = width * height;
+    for (i = 0, j = 0; i < total_pixels && j < total_pixels * 2; i += 2, j += 4)
     {
-        cam_hw_deinit();
+        argb_data[i] = yuv_to_argb((unsigned char)yuyv_data[j], 
+                                   (unsigned char)yuyv_data[j + 1], 
+                                   (unsigned char)yuyv_data[j + 3]);
+        argb_data[i + 1] = yuv_to_argb((unsigned char)yuyv_data[j + 2], 
+                                       (unsigned char)yuyv_data[j + 1], 
+                                       (unsigned char)yuyv_data[j + 3]);
     }
-
-    // 初始化状态变量
-    frame_count = 0;
-    current_fps = 0;
-    retry_count = 0;
-    last_error_time = 0;
-    last_fps_calc_time = time(NULL);
-    memset(mmap_buffers, 0, sizeof(mmap_buffers));
-    memset(mmap_lengths, 0, sizeof(mmap_lengths));
-
-    // 分配帧缓冲区
-    cam_buf = (uint8_t *)malloc(CAM_FRAME_WIDTH * CAM_FRAME_HEIGHT * 3);
-    if (cam_buf == NULL) 
-    {
-        perror("video capture: malloc buffer failed");
-        return -1;
-    }
-
     return 0;
 }
 
-void video_capture_deinit(void)
+// 原摄像头初始化函数（调整为内部静态函数）
+static int init_camera_module(char *openVideoPathName)
 {
-    video_capture_stop();
-    cam_hw_deinit();
-    
-    if (cam_buf) 
+    int ret;
+    camera_fd = open(openVideoPathName, O_RDWR);
+    if (camera_fd == -1)
     {
-        free(cam_buf);
-        cam_buf = NULL;
-    }
-}
-
-int video_capture_start(void)
-{
-    if (capture_running) 
-    {
-        return 0; // 已在运行
-    }
-
-    if (cam_buf == NULL) 
-    {
-        return -1; // 未初始化
-    }
-
-    // 初始化硬件
-    if (cam_hw_init() != 0) 
-    {
+        perror("打开摄像头失败");
         return -1;
     }
 
-    capture_running = true;
-    last_fps_calc_time = time(NULL);
-    return 0;
-}
-
-void video_capture_stop(void)
-{
-    capture_running = false;
-    cam_hw_deinit();
-}
-
-int video_capture_get_frame(video_frame_t *frame)
-{
-    if (frame == NULL || !capture_running || cam_buf == NULL) 
-    {
-        return -1;
-    }
-
-    // 异常重试逻辑
-    time_t now = time(NULL);
-    if (cam_fd < 0 && difftime(now, last_error_time) > 1 && retry_count < CAM_MAX_RETRY_CNT) 
-    {
-        cam_hw_deinit();
-        cam_hw_init();
-        retry_count++;
-        last_error_time = now;
-        return -1;
-    }
-
-    // 采集硬件帧数据
-    int ret = cam_hw_capture_frame(cam_buf, CAM_FRAME_WIDTH * CAM_FRAME_HEIGHT * 3);
-    if (ret != 0) 
-    {
-        frame->valid = false;
-        return ret;
-    }
-
-    // 填充帧数据结构体
-    frame->data = cam_buf;
-    frame->width = CAM_FRAME_WIDTH;
-    frame->height = CAM_FRAME_HEIGHT;
-    frame->data_size = CAM_FRAME_WIDTH * CAM_FRAME_HEIGHT * 3;
-    frame->valid = true;
-
-    // 帧率统计
-    frame_count++;
-    if (difftime(now, last_fps_calc_time) >= 1) 
-    {
-        current_fps = frame_count;
-        frame_count = 0;
-        last_fps_calc_time = now;
-    }
-
-    return 0;
-}
-
-int video_capture_get_fps(void)
-{
-    return current_fps;
-}
-
-bool video_capture_is_running(void)
-{
-    return capture_running;
-}
-
-// ========== 硬件底层操作 (私有化) ==========
-static int cam_hw_init(void)
-{
-    struct v4l2_format fmt;
-    struct v4l2_requestbuffers req;
-    struct v4l2_buffer buf;
     struct v4l2_capability cap;
-
-    // 打开设备
-    cam_fd = open(CAM_DEV_PATH, O_RDWR | O_NONBLOCK);
-    if (cam_fd < 0) 
-    {
-        perror("video capture: open device failed");
-        last_error_time = time(NULL);
+    ret = ioctl(camera_fd, VIDIOC_QUERYCAP, &cap);
+    if (ret == -1) {
+        perror("查询摄像头能力失败");
+        close(camera_fd);
+        return -1;
+    }
+    if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+        fprintf(stderr, "设备不支持视频捕获\n");
+        close(camera_fd);
+        return -1;
+    }
+    if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
+        fprintf(stderr, "设备不支持流捕获\n");
+        close(camera_fd);
         return -1;
     }
 
-    // 检查设备能力
-    if (ioctl(cam_fd, VIDIOC_QUERYCAP, &cap) < 0) 
+    struct v4l2_format format;
+    memset(&format, 0, sizeof(format));
+    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    format.fmt.pix.width = cam_cfg.width;
+    format.fmt.pix.height = cam_cfg.height;
+    format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    format.fmt.pix.field = V4L2_FIELD_NONE;
+
+    ret = ioctl(camera_fd, VIDIOC_S_FMT, &format);
+    if (ret == -1)
     {
-        perror("video capture: query cap failed");
-        close(cam_fd);
-        cam_fd = -1;
-        last_error_time = time(NULL);
+        perror("设置摄像头格式失败");
+        close(camera_fd);
+        return -1;
+    }
+    printf("实际摄像头分辨率：%dx%d\n", format.fmt.pix.width, format.fmt.pix.height);
+
+    struct v4l2_requestbuffers req_buf;
+    memset(&req_buf, 0, sizeof(req_buf));
+    req_buf.count = 4;
+    req_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    req_buf.memory = V4L2_MEMORY_MMAP;
+
+    ret = ioctl(camera_fd, VIDIOC_REQBUFS, &req_buf);
+    if (ret == -1)
+    {
+        perror("申请缓冲区失败");
+        close(camera_fd);
+        return -1;
+    }
+    if (req_buf.count < 2) {
+        fprintf(stderr, "缓冲区数量不足\n");
+        close(camera_fd);
         return -1;
     }
 
-    if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) || !(cap.capabilities & V4L2_CAP_STREAMING)) 
+    struct v4l2_buffer buffer;
+    for (int i = 0; i < req_buf.count; i++)
     {
-        fprintf(stderr, "video capture: device not support capture/stream\n");
-        close(cam_fd);
-        cam_fd = -1;
-        last_error_time = time(NULL);
-        return -1;
-    }
+        memset(&buffer, 0, sizeof(buffer));
+        buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        buffer.memory = V4L2_MEMORY_MMAP;
+        buffer.index = i;
 
-    // 设置格式
-    memset(&fmt, 0, sizeof(fmt));
-    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    fmt.fmt.pix.width = CAM_FRAME_WIDTH;
-    fmt.fmt.pix.height = CAM_FRAME_HEIGHT;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
-    fmt.fmt.pix.field = V4L2_FIELD_NONE;
-
-    if (ioctl(cam_fd, VIDIOC_S_FMT, &fmt) < 0) 
-    {
-        perror("video capture: set format failed");
-        close(cam_fd);
-        cam_fd = -1;
-        last_error_time = time(NULL);
-        return -1;
-    }
-
-    // 请求缓冲区
-    memset(&req, 0, sizeof(req));
-    req.count = 4;
-    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    req.memory = V4L2_MEMORY_MMAP;
-
-    if (ioctl(cam_fd, VIDIOC_REQBUFS, &req) < 0) 
-    {
-        perror("video capture: request buffers failed");
-        close(cam_fd);
-        cam_fd = -1;
-        last_error_time = time(NULL);
-        return -1;
-    }
-
-    // 映射缓冲区
-    for (int i = 0; i < req.count; i++) 
-    {
-        memset(&buf, 0, sizeof(buf));
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buf.memory = V4L2_MEMORY_MMAP;
-        buf.index = i;
-
-        if (ioctl(cam_fd, VIDIOC_QUERYBUF, &buf) < 0) 
+        ret = ioctl(camera_fd, VIDIOC_QUERYBUF, &buffer);
+        if (ret == -1)
         {
-            perror("video capture: query buffer failed");
-            cam_hw_deinit();
+            perror("查询缓冲区信息失败");
+            close(camera_fd);
             return -1;
         }
 
-        mmap_buffers[i] = mmap(NULL, buf.length, PROT_READ, MAP_SHARED, cam_fd, buf.m.offset);
-        if (mmap_buffers[i] == MAP_FAILED) 
+        camera_buffers[i].length = buffer.length;
+        camera_buffers[i].start = mmap(NULL, buffer.length,
+                                PROT_READ | PROT_WRITE,
+                                MAP_SHARED,
+                                camera_fd,
+                                buffer.m.offset);
+        if (camera_buffers[i].start == MAP_FAILED)
         {
-            perror("video capture: mmap failed");
-            cam_hw_deinit();
+            perror("映射缓冲区失败");
+            close(camera_fd);
             return -1;
         }
-        mmap_lengths[i] = buf.length;
 
-        // 入队缓冲区
-        if (ioctl(cam_fd, VIDIOC_QBUF, &buf) < 0) 
+        ret = ioctl(camera_fd, VIDIOC_QBUF, &buffer);
+        if (ret == -1)
         {
-            perror("video capture: qbuf failed");
-            cam_hw_deinit();
+            perror("缓冲区入队失败");
+            close(camera_fd);
             return -1;
         }
     }
 
-    // 启动流
-    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (ioctl(cam_fd, VIDIOC_STREAMON, &type) < 0) 
+    enum v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    ret = ioctl(camera_fd, VIDIOC_STREAMON, &buf_type);
+    if (ret == -1)
     {
-        perror("video capture: stream on failed");
-        cam_hw_deinit();
+        perror("启动视频流失败");
+        close(camera_fd);
         return -1;
     }
 
+    printf("摄像头初始化成功\n");
     return 0;
 }
 
-static void cam_hw_deinit(void)
+// 原LCD初始化函数（调整为内部静态函数）
+static int init_display_module(char *lcd_path_name)
 {
-    if (cam_fd >= 0) 
+    lcd_fd = open(lcd_path_name, O_RDWR);
+    if (lcd_fd == -1)
     {
-        // 停止流
-        enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        ioctl(cam_fd, VIDIOC_STREAMOFF, &type);
+        perror("打开液晶屏失败");
+        return -1;
+    }
 
-        // 释放映射
-        for (int i = 0; i < 4; i++) 
+    lcd_memory = mmap(NULL,
+                    disp_cfg.lcd_width * disp_cfg.lcd_height * 4,
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED,
+                    lcd_fd,
+                    0);
+
+    if (lcd_memory == MAP_FAILED)
+    {
+        perror("映射液晶屏内存失败");
+        close(lcd_fd);
+        return -1;
+    }
+
+    printf("LCD显示模块初始化成功\n");
+    return 0;
+}
+
+// 在指定位置显示摄像头画面
+void display_camera_frame(int *argb_buffer, int *lcd_mem,
+                          struct camera_config *cam_cfg,
+                          struct display_config disp_cfg)  // 若为普通结构体，此处无*
+{
+    int src_row, dst_row;
+    int width = cam_cfg->width;
+    int height = cam_cfg->height;
+
+    // 边界检查：防止显示位置超出LCD范围
+    // 修正：将disp_cfg-> 改为 disp_cfg.
+    if (disp_cfg.display_x < 0 || disp_cfg.display_y < 0 ||
+        disp_cfg.display_x + width > disp_cfg.lcd_width ||
+        disp_cfg.display_y + height > disp_cfg.lcd_height) {
+        fprintf(stderr, "显示位置超出LCD边界\n");
+        return;
+    }
+
+    // 边界检查：防止显示位置超出LCD范围
+    if (disp_cfg.display_x < 0 || disp_cfg.display_y < 0 ||
+        disp_cfg.display_x + width > disp_cfg.lcd_width ||
+        disp_cfg.display_y + height > disp_cfg.lcd_height) {
+        fprintf(stderr, "显示位置超出LCD边界\n");
+        return;
+    }
+
+    // 逐行复制ARGB数据到LCD帧缓冲
+    for (src_row = 0; src_row < height; src_row++)
+    {
+        // 计算目标行（LCD上的行）
+        dst_row = disp_cfg.display_y + src_row;  // 同步修正为.
+
+        // 目标行起始地址 = LCD基地址 + 目标行偏移 + X坐标偏移
+        int *dst_line_start = lcd_mem + dst_row * disp_cfg.lcd_width + disp_cfg.display_x;  // 同步修正为.
+
+        // 源数据行起始地址
+        int *src_line_start = argb_buffer + src_row * width;
+
+        // 复制一行像素（每个像素4字节，直接memcpy效率最高）
+        memcpy(dst_line_start, src_line_start, width * 4);
+    }
+}
+
+// 原释放资源函数（调整为内部静态函数）
+static void release_resources(void) {
+    exit_flag = 1;
+    camera_running_flag = 0;
+
+    // 停止视频流
+    enum v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (camera_fd > 0 && ioctl(camera_fd, VIDIOC_STREAMOFF, &buf_type) == -1) {
+        perror("停止视频流失败");
+    }
+
+    // 解除摄像头缓冲区映射
+    for (int i = 0; i < buf_count; i++) {
+        if (camera_buffers[i].start != NULL && camera_buffers[i].start != MAP_FAILED) {
+            munmap(camera_buffers[i].start, camera_buffers[i].length);
+        }
+    }
+
+    // 解除LCD内存映射
+    if (lcd_memory != NULL && lcd_memory != MAP_FAILED) {
+        munmap(lcd_memory, disp_cfg.lcd_width * disp_cfg.lcd_height * 4);
+    }
+
+    // 关闭文件描述符
+    if (camera_fd > 0) close(camera_fd);
+    if (lcd_fd > 0) close(lcd_fd);
+
+    // 释放ARGB缓冲区
+    if (argb_buffer != NULL) free(argb_buffer);
+
+    printf("摄像头资源释放完成\n");
+}
+
+// 对外接口：初始化摄像头+LCD系统
+int camera_system_init(void)
+{
+    int ret;
+    // 分配ARGB缓冲区
+    argb_buffer = malloc(cam_cfg.width * cam_cfg.height * sizeof(int));
+    if (argb_buffer == NULL)
+    {
+        perror("分配ARGB缓冲区失败");
+        return -1;
+    }
+
+    // 初始化LCD
+    ret = init_display_module("/dev/fb0");
+    if (ret != 0)
+    {
+        free(argb_buffer);
+        return -1;
+    }
+
+    // 初始化摄像头
+    ret = init_camera_module("/dev/video9");
+    if (ret != 0)
+    {
+        munmap(lcd_memory, disp_cfg.lcd_width * disp_cfg.lcd_height * 4);
+        close(lcd_fd);
+        free(argb_buffer);
+        return -1;
+    }
+
+    exit_flag = 0;
+    return 0;
+}
+
+// 摄像头采集循环（线程执行函数）
+void *camera_collect_loop(void *arg)
+{
+    int ret;
+    struct v4l2_buffer v4l2_buf;
+    camera_running_flag = 1;
+    printf("摄像头采集线程启动（按关闭按钮停止）...\n");
+
+    while (!exit_flag && camera_running_flag)
+    {
+        for (int i = 0; i < buf_count && camera_running_flag; i++)
         {
-            if (mmap_buffers[i] != NULL && mmap_buffers[i] != MAP_FAILED) 
+            memset(&v4l2_buf, 0, sizeof(v4l2_buf));
+            v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            v4l2_buf.memory = V4L2_MEMORY_MMAP;
+            v4l2_buf.index = i;
+
+            // 取出缓冲区（非阻塞，避免卡死）
+            ret = ioctl(camera_fd, VIDIOC_DQBUF, &v4l2_buf);
+            if (ret == -1)
             {
-                munmap(mmap_buffers[i], mmap_lengths[i]);
-                mmap_buffers[i] = NULL;
-                mmap_lengths[i] = 0;
+                if (errno == EAGAIN) continue;
+                perror("从队列取出缓冲区失败");
+                camera_running_flag = 0;
+                break;
+            }
+
+            // 格式转换+显示
+            convert_yuyv_to_argb(camera_buffers[i].start, argb_buffer, cam_cfg.width, cam_cfg.height);
+            display_camera_frame(argb_buffer, lcd_memory, &cam_cfg, disp_cfg);
+
+            // 缓冲区重新入队
+            ret = ioctl(camera_fd, VIDIOC_QBUF, &v4l2_buf);
+            if (ret == -1)
+            {
+                perror("缓冲区重新入队失败");
+                camera_running_flag = 0;
+                break;
             }
         }
+    }
 
-        close(cam_fd);
-        cam_fd = -1;
+    release_resources();
+    pthread_exit(NULL);
+    return NULL;
+}
+
+// 对外接口：启动摄像头采集（创建线程）
+void camera_system_run(void)
+{
+    if (camera_running_flag) return; // 已运行则直接返回
+    int ret = pthread_create(&camera_thread, NULL, camera_collect_loop, NULL);
+    if (ret != 0)
+    {
+        perror("创建摄像头线程失败");
+        camera_running_flag = 0;
     }
 }
 
-static int cam_hw_capture_frame(uint8_t *buf, uint32_t buf_size)
+// 对外接口：停止摄像头采集
+void camera_system_stop(void)
 {
-    if (cam_fd < 0) 
+    if (!camera_running_flag) return;
+    camera_running_flag = 0;
+    exit_flag = 1;
+    pthread_join(camera_thread, NULL); // 等待线程退出
+}
+
+// 对外接口：释放摄像头系统资源
+void camera_system_release(void)
+{
+    camera_system_stop();
+    release_resources();
+}
+
+// 原main函数改名为独立测试入口（可选保留）
+int camera_standalone_main(void)
+{
+    if (signal(SIGINT, sig_handler) == SIG_ERR) 
+    {
+        perror("注册信号处理失败");
+        return -1;
+    }
+
+    if (camera_system_init() != 0)
     {
         return -1;
     }
 
-    struct v4l2_buffer v4l2_buf;
-    memset(&v4l2_buf, 0, sizeof(v4l2_buf));
-    v4l2_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    v4l2_buf.memory = V4L2_MEMORY_MMAP;
-
-    // 出队缓冲区
-    int ret = ioctl(cam_fd, VIDIOC_DQBUF, &v4l2_buf);
-    if (ret < 0) 
-    {
-        if (errno == EAGAIN) 
-        {
-            return 1; // 暂无数据
-        }
-        perror("video capture: dqbuf failed");
-        last_error_time = time(NULL);
-        return -1;
-    }
-
-    // 拷贝数据
-    if (v4l2_buf.index >= 0 && v4l2_buf.index < 4 && mmap_buffers[v4l2_buf.index] != NULL) 
-    {
-        memcpy(buf, mmap_buffers[v4l2_buf.index], 
-               v4l2_buf.bytesused > buf_size ? buf_size : v4l2_buf.bytesused);
-    }
-
-    // 重新入队
-    ioctl(cam_fd, VIDIOC_QBUF, &v4l2_buf);
-
+    camera_system_run();
+    pthread_join(camera_thread, NULL); // 等待线程结束
     return 0;
 }

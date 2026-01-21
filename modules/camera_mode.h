@@ -1,72 +1,50 @@
-#ifndef __CAMERA_MODE_H
-#define __CAMERA_MODE_H
+#ifndef __CAMERA_H
+#define __CAMERA_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <linux/videodev2.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <signal.h>
+#include <errno.h>
+#include <pthread.h>
 
-#include <stdint.h>
-#include <stdbool.h>
+// 结构体定义
+struct display_config
+{
+    int lcd_width;
+    int lcd_height;
+    int display_x;
+    int display_y;
+};
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+struct camera_config
+{
+    int width;
+    int height;
+};
 
+// 缓冲区信息结构体
+struct buffer_info
+{
+    void *start; // 缓冲区起始地址
+    int length;  // 缓冲区长度
+};
 
-#define CAM_DEV_PATH            "/dev/video9"   // 摄像头设备节点
-#define CAM_FRAME_WIDTH         640             // 采集宽度
-#define CAM_FRAME_HEIGHT        480             // 采集高度
-#define CAM_MAX_RETRY_CNT       3               // 异常最大重试次数
+// 全局控制变量（供GUI调用）
+extern int camera_running_flag;  // 摄像头运行标志
+extern pthread_t camera_thread;  // 摄像头线程句柄
 
-// 视频帧数据结构
-typedef struct {
-    uint8_t *data;          // 帧数据缓冲区 (RGB24格式)
-    uint32_t width;         // 帧宽度
-    uint32_t height;        // 帧高度
-    uint32_t data_size;     // 数据大小 (width*height*3)
-    bool valid;             // 帧数据是否有效
-} video_frame_t;
-
-// ========== 核心接口 ==========
-/**
- * @brief 初始化视频采集模块
- * @return 0:成功 其他:失败
- */
-int video_capture_init(void);
-
-/**
- * @brief 销毁视频采集模块
- */
-void video_capture_deinit(void);
-
-/**
- * @brief 启动视频采集
- * @return 0:成功 其他:失败
- */
-int video_capture_start(void);
-
-/**
- * @brief 停止视频采集
- */
-void video_capture_stop(void);
-
-/**
- * @brief 获取一帧视频数据
- * @param frame 输出参数：帧数据结构体
- * @return 0:成功 -1:失败 1:暂无数据
- */
-int video_capture_get_frame(video_frame_t *frame);
-
-/**
- * @brief 获取当前采集帧率
- * @return 当前帧率值
- */
-int video_capture_get_fps(void);
-
-/**
- * @brief 检查视频采集是否正在运行
- * @return true:运行中 false:已停止
- */
-bool video_capture_is_running(void);
-
-#ifdef __cplusplus
-}
-#endif
+// 对外接口声明
+int camera_system_init(void);    // 初始化摄像头+LCD
+void camera_system_run(void);    // 摄像头采集循环（线程执行）
+void camera_system_stop(void);   // 停止摄像头采集
+void camera_system_release(void);// 释放摄像头+LCD资源
 
 #endif
