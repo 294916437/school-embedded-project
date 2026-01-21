@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <string.h>    
 #include <sys/stat.h>
 #include "../lvgl/lvgl.h"
 #include "../lvgl/demos/lv_demos.h"
@@ -13,6 +15,8 @@
 #include <sys/wait.h>
 #include "lv_run_main.h" 
 #include "lv_mygec_font.h"
+
+
 
 // 设置UI更新定时器（20ms间隔，约50Hz）
 static lv_timer_t *game_timer;
@@ -81,7 +85,7 @@ char *play = NULL; //当前播放的视频
 int list = 0;//视频索引
 int total_time = 0;//获取总时长效应次数
 
-// 新增：用于接收mplayer输出的FIFO（复用现有FIFO机制）
+// 用于接收mplayer输出的FIFO（复用现有FIFO机制）
 static char current_position[32] = "00:00";  // 当前进度
 static char video_length[32] = "00:00";  // 当前进度
 
@@ -144,34 +148,42 @@ static void init_styles() {
   
 }
 
-// 修改 ensure_fifo，检查 open 结果
+//  检查 open 结果
 static void ensure_fifo() {
     struct stat st;
+    
+    // 创建 FIFO（如果不存在）
     if (stat(FIFO_PATH, &st) == -1) {
         if (mkfifo(FIFO_PATH, 0666) == -1) {
-            perror("mkfifo failed");  // 输出错误信息
+            perror("mkfifo input failed");
             return;
         }
     }
     if (stat(FIFO_OUT_PATH, &st) == -1) {
         if (mkfifo(FIFO_OUT_PATH, 0666) == -1) {
-            perror("mkfifo out failed");
+            perror("mkfifo output failed");
             return;
         }
     }
+    
+    // 打开 FIFO（非阻塞模式）
     if (fifo_out_fd == -1) {
-        fifo_out_fd = open(FIFO_OUT_PATH, O_RDWR);
+        fifo_out_fd = open(FIFO_OUT_PATH, O_RDONLY | O_NONBLOCK);
         if (fifo_out_fd == -1) {
-            perror("open fifo out failed");
-        }
-    }
-    if (fifo_fd == -1) {
-        fifo_fd = open(FIFO_PATH, O_RDWR);
-        if (fifo_fd == -1) {
-            perror("open fifo failed");  // 检查打开失败
+            perror("open fifo_out failed");
+        } else {
+            printf("FIFO output opened (fd=%d)\n", fifo_out_fd);
         }
     }
     
+    if (fifo_fd == -1) {
+        fifo_fd = open(FIFO_PATH, O_WRONLY | O_NONBLOCK);
+        if (fifo_fd == -1) {
+            perror("open fifo_input failed");
+        } else {
+            printf("FIFO input opened (fd=%d)\n", fifo_fd);
+        }
+    }
 }
 
 
@@ -191,46 +203,67 @@ void video_stop() {
 }
 
 // 播放/暂停视频
+// 优化视频启动命令（添加音频驱动配置）
 static void toggle_play(lv_event_t *e) {
     ensure_fifo();
     play_pid = waitpid(video_pid, NULL, WNOHANG);
+    
     if (play_pid == video_pid) {
-        // 启动新的视频进程
-  
         video_pid = fork();
-       
+        
         if (video_pid == 0) {
+            // 重定向输出到 FIFO
             int out_fd = open(FIFO_OUT_PATH, O_RDWR);
             if (out_fd != -1) {
-                dup2(out_fd, STDOUT_FILENO);  // 标准输出指向FIFO
-                dup2(out_fd, STDERR_FILENO);  // 标准错误也指向FIFO（防止信息丢失）
+                dup2(out_fd, STDOUT_FILENO);
+                dup2(out_fd, STDERR_FILENO);
                 close(out_fd);
             }
             
-
-            execl( "/usr/bin/mplayer","mplayer","-slave","-quiet",
-            "-input","file=/rk3568/rk.fifo",
-            "-vo","fbdev2","-geometry","0:0" ,"-zoom","-x","1024",
-            "-y","500",play,NULL);
+            // ✅ 添加音频驱动配置
+            execl("/usr/bin/mplayer", "mplayer",
+                "-slave",                          // 从机模式
+                "-quiet",                          // 安静模式
+                "-input", "file=/rk3568/rk.fifo", // 命令输入
+                "-vo", "fbdev2",                   // 视频输出
+                "-geometry", "0:0",                // 位置
+                "-zoom", "-x", "1024", "-y", "500", // 缩放
+                "-ao", "alsa",                     // ✅ 音频驱动（ALSA）
+                "-af", "volume=0:sc",              // ✅ 软件音量控制
+                "-volume", "30",                   // ✅ 初始音量
+                play, NULL);
+            
+            perror("execl failed");
+            exit(1);
         }
         
+        // 初始化播放状态
         total_time_flag = 0;
-        total_seconds = 0; 
+        total_seconds = 0;
         current_seconds = 0;
         is_playing = 1;
+        
+        // 设置初始音量
+        usleep(500000);  // 等待 MPlayer 启动
+        if(fifo_fd != -1) {
+            char buf[50];
+            sprintf(buf, VIDEO_VOLUME, volume_);
+            write(fifo_fd, buf, strlen(buf));
+        }
+        
         lv_timer_resume(game_timer);
         lv_timer_resume(one_sec_timer);
-        lv_label_set_text(play_label, LV_SYMBOL_PAUSE);  // 暂停图标
+        lv_label_set_text(play_label, LV_SYMBOL_PAUSE);
         lv_label_set_text(status_label, "正在播放");
         lv_style_set_text_color(&status_style, STATUS_COLOR_PLAY);
         lv_obj_add_style(status_label, &status_style, 0);
     } else {
-        // 发送暂停/继续命令
+        // 暂停/继续
         if (fifo_fd != -1) {
-        write(fifo_fd, VIDEO_PLAY, strlen(VIDEO_PLAY));
+            write(fifo_fd, VIDEO_PLAY, strlen(VIDEO_PLAY));
         }
         is_playing = !is_playing;
-        lv_label_set_text(play_label, is_playing ? LV_SYMBOL_PAUSE: LV_SYMBOL_PLAY);
+        lv_label_set_text(play_label, is_playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
         lv_label_set_text(status_label, is_playing ? "正在播放" : "已暂停");
         lv_style_set_text_color(&status_style, is_playing ? STATUS_COLOR_PLAY : STATUS_COLOR_PAUSE);
         lv_obj_add_style(status_label, &status_style, 0);
@@ -296,37 +329,47 @@ static void backhome(lv_event_t *e)
     }
     
     // 返回主界面
-    lv_run_main();
+    main_grid();
 }
 
 //+音量
 static void volumup_video(lv_event_t *e) {
-    if(fifo_fd != -1)
-    {
+    if(fifo_fd != -1) {
         volume_ = lv_slider_get_value(volumup_btn);
         char buf[50];
-        lv_label_set_text_fmt(status_label, "音量: %d", volume_);
-        sprintf(buf,VIDEO_VOSE);
-        write(fifo_fd, buf, strlen(buf));
+        
+        // 发送音量命令到 MPlayer
+        sprintf(buf, VIDEO_VOLUME, volume_);
+        ssize_t ret = write(fifo_fd, buf, strlen(buf));
+        
+        if(ret > 0) {
+            // 更新状态标签（仅在成功写入时更新）
+            lv_label_set_text_fmt(status_label, "音量: %d%%", volume_);
+            lv_style_set_text_color(&status_style, lv_color_hex(0x3498DB));  // 蓝色表示调节中
+            lv_obj_add_style(status_label, &status_style, 0);
+        } else {
+            perror("Failed to set volume");
+        }
     }
 }
 
 // 进度条事件回调函数
 static void progress_video(lv_event_t *e) {
-    if(fifo_fd != -1 && total_seconds > 0) {
-        // 获取滑块当前值
+    if(total_seconds > 0) {
+        // 获取滑块当前百分比值
         int value = lv_slider_get_value(progress_slider);
-        // 计算百分比对应的秒数
-        int seek_seconds = (total_seconds * value) / 100;
-      
-        // 更新进度显示
-        int mins = seek_seconds / 60;
-        int sec = seek_seconds % 60;
-        lv_timer_pause(one_sec_timer);
-        current_seconds = seek_seconds;
         
-
-        lv_label_set_text_fmt(progress_label, "%02d:%02d/%s", mins, sec, video_length);
+        // 计算对应的秒数（范围：0 ~ total_seconds）
+        current_seconds = (total_seconds * value) / 100;
+        
+        // 更新显示（格式：MM:SS/MM:SS）
+        int cur_mins = current_seconds / 60;
+        int cur_secs = current_seconds % 60;
+        int total_mins = total_seconds / 60;
+        int total_secs = total_seconds % 60;
+        
+        lv_label_set_text_fmt(progress_label, "%02d:%02d/%02d:%02d", 
+                              cur_mins, cur_secs, total_mins, total_secs);
     }
 }
 
@@ -337,26 +380,39 @@ static void slider_start_drag(lv_event_t *e) {
     // printf("is drw:%d\n",is_slider_dragging);
    
 }
-// 滑块结束拖动事件
+
+// 新增：滑块结束拖动事件
 static void slider_end_drag(lv_event_t *e) {
     char buf[50];
     is_slider_dragging = 0;
-    printf("total:%d , curren:%d\n",total_seconds,current_seconds); 
-    // 调用原进度调整函数
-    // progress_video(e);
-    sprintf(buf, "seek %d 2\n", current_seconds);
-    write(fifo_fd, buf, strlen(buf));
+    
+    if(fifo_fd != -1 && total_seconds > 0) {
+        // 使用绝对定位模式（seek <秒数> 2 表示相对百分比）
+        // 改为 seek <秒数> 1 表示绝对秒数
+        sprintf(buf, "seek %d 2\n", current_seconds);
+        ssize_t ret = write(fifo_fd, buf, strlen(buf));
+        
+        if(ret > 0) {
+            printf("Seek to %d/%d seconds\n", current_seconds, total_seconds);
+            // 立即查询新位置
+            write(fifo_fd, VIDEO_TIME, strlen(VIDEO_TIME));
+        } else {
+            perror("Failed to seek");
+        }
+    }
+    
+    // 恢复定时器更新
     lv_timer_resume(one_sec_timer);
 }
 
-// 时长更新的异步回调函数（在主线程执行）
+// 新增：时长更新的异步回调函数（在主线程执行）
 static void update_length_async(void *param) {
     char *text = (char *)param;
     lv_label_set_text_fmt(progress_label, "%s/%s", current_position, video_length);
     
 }
 
-// 进度更新的异步回调函数（在主线程执行）
+// 新增：进度更新的异步回调函数（在主线程执行）
 static void update_position_async(void *param) {
     char *text = (char *)param;
     lv_label_set_text_fmt(progress_label, "%s/%s", current_position, video_length);
@@ -390,55 +446,82 @@ static void parse_length(const char *buf) {
         lv_async_call(update_length_async, video_length);
     }
 }
-
-//一秒定时器刷新视频进度
-static void one_sec_handle(lv_timer_t *timer)
-{
-    play_pid = waitpid(video_pid, NULL, WNOHANG);
-    
-    if (play_pid != video_pid &&is_playing) {
-    current_seconds++;
-    int mins = (int)current_seconds / 60;
-    int sec = (int)current_seconds % 60;
-    sprintf(current_position, "%02d:%02d", mins, sec);  // 格式化为MM:SS
-    lv_async_call(update_position_async, current_position);
-
-    
-        char buf[128];
-        write(fifo_fd, VIDEO_TIME, strlen(VIDEO_TIME));
-        // 读取mplayer输出
-        ssize_t n = read(fifo_out_fd, buf, sizeof(buf)-1);
-        buf[n] = '\n';
-        const char *prefix = "ANS_TIME_POSITION=";
-        if (strstr(buf, prefix)) 
-        printf("%s\n",buf);
+// 解析实际播放位置（从 ANS_TIME_POSITION 获取）
+static void parse_position(const char *buf) {
+    const char *prefix = "ANS_TIME_POSITION=";
+    if (strstr(buf, prefix)) {
+        float pos = atof(buf + strlen(prefix));
+        current_seconds = (int)pos;
         
-
+        // 更新显示
+        int mins = current_seconds / 60;
+        int sec = current_seconds % 60;
+        sprintf(current_position, "%02d:%02d", mins, sec);
+        
+        // 异步更新UI
+        lv_async_call(update_position_async, current_position);
     }
-    else
-    {
-        video_pid = -1;
-        lv_timer_pause(one_sec_timer);
-    }
-
 }
 
-// 实时读取输出并获取时长
-static void read_mplayer_output(lv_timer_t *timer) {
-
-    // printf("timer:%d\n",total_time);
-    char buf[128];
-        // 定时发送进度查询命令（每100ms一次，平衡实时性和性能）
-    if(fifo_fd != -1 && !total_time_flag && fifo_out_fd != -1)
-    {
-        write(fifo_fd, VIDEO_LENG, strlen(VIDEO_LENG));
-        
-        // 读取mplayer输出
-        ssize_t n = read(fifo_out_fd, buf, sizeof(buf)-1);
-        buf[n] = '\n';
-        parse_length(buf);
+// 优化一秒定时器
+static void one_sec_handle(lv_timer_t *timer) {
+    // 检查进程是否存活
+    play_pid = waitpid(video_pid, NULL, WNOHANG);
+    
+    if (play_pid != video_pid && is_playing && !is_slider_dragging) {
+        // 发送查询命令
+        if(fifo_fd != -1) {
+            write(fifo_fd, VIDEO_TIME, strlen(VIDEO_TIME));
+            
+            // 读取实际位置
+            char buf[128];
+            ssize_t n = read(fifo_out_fd, buf, sizeof(buf)-1);
+            
+            if(n > 0) {
+                buf[n] = '\0';
+                parse_position(buf);  // ✅ 使用实际位置而非本地计数
+            } else {
+                // 回退到本地计数（当读取失败时）
+                current_seconds++;
+                int mins = current_seconds / 60;
+                int sec = current_seconds % 60;
+                sprintf(current_position, "%02d:%02d", mins, sec);
+                lv_async_call(update_position_async, current_position);
+            }
+        }
+    } else if(play_pid == video_pid) {
+        // 视频播放结束
+        video_pid = -1;
+        is_playing = 0;
+        lv_timer_pause(one_sec_timer);
+        lv_label_set_text(status_label, "播放完成");
     }
+}
 
+// 读取函数
+static void read_mplayer_output(lv_timer_t *timer) {
+    if(fifo_fd == -1 || total_time_flag || fifo_out_fd == -1) {
+        return;
+    }
+    
+    // 发送查询命令
+    if(write(fifo_fd, VIDEO_LENG, strlen(VIDEO_LENG)) < 0) {
+        if(errno != EAGAIN && errno != EWOULDBLOCK) {
+            perror("write VIDEO_LENG failed");
+        }
+        return;
+    }
+    
+    // 读取输出（非阻塞）
+    char buf[256];
+    ssize_t n = read(fifo_out_fd, buf, sizeof(buf)-1);
+    
+    if(n > 0) {
+        buf[n] = '\0';
+        parse_length(buf);
+    } else if(n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        perror("read fifo_out failed");
+    }
 }
 
 
@@ -479,6 +562,12 @@ void video_init() {
     lv_obj_align(video_player,LV_ALIGN_CENTER,0,-100);
     lv_obj_add_style(video_player, &video_area_style, 0);
 
+    // 状态标签
+    status_label = lv_label_create(video_screen);
+    lv_obj_align(status_label, LV_ALIGN_BOTTOM_MID, 400, -40);
+    lv_label_set_text(status_label, "未播放");
+    lv_obj_add_style(status_label, &status_style, 0);
+
     // 控制按钮 - 播放/暂停 (▶/⏸)
     play_btn = lv_btn_create(video_screen);
     lv_obj_set_size(play_btn,100,40);
@@ -516,10 +605,16 @@ void video_init() {
     lv_obj_add_style(volumup_btn, &slider_style_indicator, LV_PART_INDICATOR);
     lv_obj_add_style(volumup_btn, &slider_style_knob, LV_PART_KNOB);
 
+    // 音量控制
+    volumup_label = lv_label_create(video_screen);
+    lv_obj_align(volumup_label, LV_ALIGN_BOTTOM_MID, 400,-3);
+    lv_label_set_text(volumup_label, "音量调节");
+    lv_obj_add_style(volumup_label, &status_style, 0);
+
     // 创建进度显示标签
     progress_label = lv_label_create(video_screen);
     lv_obj_align(progress_label, LV_ALIGN_BOTTOM_MID, 300, -35);  // 位于控制按钮上方
-    lv_label_set_text(progress_label, "00:00 00:00");
+    lv_label_set_text(progress_label, "00:00/00:00");
     lv_obj_add_style(progress_label, &status_style, 0);
 
     // 创建进度滑动条
@@ -564,7 +659,7 @@ void video_demo_close(void)
         video_screen = NULL;
     }
     
-    lv_run_main();
+    main_grid();
 }
 
 // 清理视频资源

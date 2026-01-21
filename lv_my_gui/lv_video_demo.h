@@ -14,6 +14,7 @@
 #define VIDEO_VOSE "volume %d 1\n",volume_
 #define VIDEO_LENG "get_time_length\n"
 #define VIDEO_TIME "get_time_pos\n"
+#define VIDEO_VOLUME "volume %d 1\n"
 #define VIDEO_QUIT "quit\n"
 
 // 样式相关宏定义

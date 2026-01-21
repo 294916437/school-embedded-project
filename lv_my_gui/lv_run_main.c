@@ -10,7 +10,6 @@
 LV_FONT_DECLARE(main_imgfont);
 LV_FONT_DECLARE(main_clock);
 LV_FONT_DECLARE(mytext18);
-LV_IMG_DECLARE(game);
 
 LV_IMG_DECLARE(main_bg1);
 LV_IMG_DECLARE(main_photo);
@@ -283,7 +282,7 @@ void main_grid(void)
 
     CREATE_APP_TILE(cont, &main_music, "音乐", 2, 1, 1, 1);
 
-    CREATE_APP_TILE(cont, &game, "游戏", 3, 1, 1, 1);
+    CREATE_APP_TILE(cont, "A:img/game.bmp", "游戏", 3, 1, 1, 1);
     lv_obj_add_event_cb(obj, lv_event_game_cb, LV_EVENT_CLICKED, NULL);
 
     /*========================================
