@@ -115,7 +115,7 @@ static void lv_event_setting_cb(lv_event_t *event)
 //-----------------------------------------------------------------
 void main_grid(lv_style_t * style)
 {
-    /* 网格布局定义 - 4列3行，针对1024x600优化 */
+    /* 网格布局定义 - 4列3行 */
     static lv_coord_t col_dsc[] = { 200, 160, 160, 160, LV_GRID_TEMPLATE_LAST };
     static lv_coord_t row_dsc[] = { 130, 150, 150, LV_GRID_TEMPLATE_LAST };
 
@@ -149,9 +149,75 @@ void main_grid(lv_style_t * style)
     lv_obj_set_style_pad_column(cont, 10, LV_PART_MAIN);  // 列间距10px
 
     /*========================================
-     * 第一行：时间日期模块（跨3列）
-     *========================================*/
-    
+    * 第一行：时间日期模块 - 拆分为两个独立容器
+    *========================================*/
+
+    /* === 左侧：日期容器 === */
+    lv_obj_t *obj_date = lv_btn_create(cont);
+    lv_obj_set_style_bg_color(obj_date, lv_color_hex(0xffffff), 0);
+    lv_obj_set_style_bg_opa(obj_date, 30, LV_PART_MAIN);
+    lv_obj_set_style_border_opa(obj_date, 150, LV_PART_MAIN);
+    lv_obj_set_style_border_width(obj_date, 2, LV_PART_MAIN);
+    lv_obj_set_style_border_color(obj_date, lv_color_hex(0xffffff), LV_PART_MAIN);
+    lv_obj_set_style_radius(obj_date, 15, LV_PART_MAIN);
+    lv_obj_set_style_shadow_width(obj_date, 10, LV_PART_MAIN);
+    lv_obj_set_style_shadow_opa(obj_date, 80, LV_PART_MAIN);
+    lv_obj_set_style_shadow_color(obj_date, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_add_state(obj_date, LV_STATE_DISABLED);
+
+    /* 日期内容容器 */
+    lv_obj_t *date_content = lv_obj_create(obj_date);
+    lv_obj_set_size(date_content, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_center(date_content);
+    lv_obj_set_style_bg_opa(date_content, 0, 0);
+    lv_obj_set_style_border_opa(date_content, 0, 0);
+    lv_obj_set_style_pad_all(date_content, 0, 0);
+    lv_obj_set_flex_flow(date_content, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(date_content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(date_content, 3, 0);
+
+    /* 2026年1月21日 星期三 */
+    lv_obj_t *label_date_year0 = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_year0, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_year0, "20");
+    lv_obj_set_style_text_color(label_date_year0, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_year = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_year, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_year, "26");
+    lv_obj_set_style_text_color(label_date_year, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_year_text = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_year_text, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_year_text, "年");
+    lv_obj_set_style_text_color(label_date_year_text, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_month = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_month, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_month, "01");
+    lv_obj_set_style_text_color(label_date_month, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_month_text = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_month_text, &mian_date_font ,LV_PART_MAIN);
+    lv_label_set_text(label_date_month_text, "月");
+    lv_obj_set_style_text_color(label_date_month_text, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_day = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_day, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_day, "22");
+    lv_obj_set_style_text_color(label_date_day, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    lv_obj_t *label_date_day_text = lv_label_create(date_content);
+    lv_obj_set_style_text_font(label_date_day_text, &mian_date_font, LV_PART_MAIN);
+    lv_label_set_text(label_date_day_text, "日");
+    lv_obj_set_style_text_color(label_date_day_text, lv_color_hex(0xffffff), LV_PART_MAIN);
+
+    /* 日期容器占据第1列和第2列 */
+    lv_obj_set_grid_cell(obj_date, LV_GRID_ALIGN_STRETCH, 0, 2,
+                        LV_GRID_ALIGN_STRETCH, 0, 1);
+
+
+    /* === 右侧：时间容器 === */
     lv_obj_t *obj_time = lv_btn_create(cont);
     lv_obj_set_style_bg_color(obj_time, lv_color_hex(0xffffff), 0);
     lv_obj_set_style_bg_opa(obj_time, 30, LV_PART_MAIN);
@@ -164,95 +230,46 @@ void main_grid(lv_style_t * style)
     lv_obj_set_style_shadow_color(obj_time, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_add_state(obj_time, LV_STATE_DISABLED);
 
-    /* 日期显示 - 紧凑布局 */
-    lv_obj_t *label_date_year0 = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_year0, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_label_set_text(label_date_year0, "20");
-    lv_obj_set_style_text_color(label_date_year0, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align(label_date_year0, LV_ALIGN_TOP_LEFT, 12, 10);
+    /* 时间显示容器 */
+    lv_obj_t *time_content = lv_obj_create(obj_time);
+    lv_obj_set_size(time_content, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_center(time_content);
+    lv_obj_set_style_bg_opa(time_content, 0, 0);
+    lv_obj_set_style_border_opa(time_content, 0, 0);
+    lv_obj_set_style_pad_all(time_content, 0, 0);
+    lv_obj_set_flex_flow(time_content, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(time_content, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(time_content, 0, 0);
 
-    lv_obj_t *label_date_year = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_year, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_label_set_text(label_date_year, "24");
-    lv_obj_set_style_text_color(label_date_year, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_year, label_date_year0, LV_ALIGN_OUT_RIGHT_MID, 2, 0);
-
-    lv_obj_t *label_date_year_text = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_year_text, &mian_date_font, LV_PART_MAIN);
-    lv_label_set_text(label_date_year_text, "年");
-    lv_obj_set_style_text_color(label_date_year_text, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_year_text, label_date_year, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
-
-    lv_obj_t *label_date_month = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_month, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_label_set_text(label_date_month, "12");
-    lv_obj_set_style_text_color(label_date_month, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_month, label_date_year_text, LV_ALIGN_OUT_RIGHT_MID, 6, 0);
-
-    lv_obj_t *label_date_month_text = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_month_text, &mian_date_font, LV_PART_MAIN);
-    lv_label_set_text(label_date_month_text, "月");
-    lv_obj_set_style_text_color(label_date_month_text, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_month_text, label_date_month, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
-
-    lv_obj_t *label_date_day = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_day, &lv_font_montserrat_16, LV_PART_MAIN);
-    lv_label_set_text(label_date_day, "12");
-    lv_obj_set_style_text_color(label_date_day, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_day, label_date_month_text, LV_ALIGN_OUT_RIGHT_MID, 6, 0);
-
-    lv_obj_t *label_date_day_text = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_day_text, &mian_date_font, LV_PART_MAIN);
-    lv_label_set_text(label_date_day_text, "日");
-    lv_obj_set_style_text_color(label_date_day_text, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_day_text, label_date_day, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
-
-    lv_obj_t *label_date_week_text = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_week_text, &mian_date_font, LV_PART_MAIN);
-    lv_label_set_text(label_date_week_text, "星期");
-    lv_obj_set_style_text_color(label_date_week_text, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_week_text, label_date_day_text, LV_ALIGN_OUT_RIGHT_MID, 12, 0);
-
-    lv_obj_t *label_date_week = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_date_week, &mian_date_font, LV_PART_MAIN);
-    lv_label_set_text(label_date_week, "一");
-    lv_obj_set_style_text_color(label_date_week, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_date_week, label_date_week_text, LV_ALIGN_OUT_RIGHT_MID, 3, 0);
-
-    /* 时间显示 */
-    lv_obj_t *label_time_hour = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_time_hour, &main_clock, LV_PART_MAIN);
-    lv_label_set_text(label_time_hour, "23");
+    /* 12:00:00 */
+    lv_obj_t *label_time_hour = lv_label_create(time_content);
+    lv_obj_set_style_text_font(label_time_hour, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_label_set_text(label_time_hour, "12");
     lv_obj_set_style_text_color(label_time_hour, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align(label_time_hour, LV_ALIGN_BOTTOM_LEFT, 30, -15); // 增加底部偏移
 
-    lv_obj_t *label_time_lab1 = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_time_lab1, &main_clock, LV_PART_MAIN);
+    lv_obj_t *label_time_lab1 = lv_label_create(time_content);
+    lv_obj_set_style_text_font(label_time_lab1, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_label_set_text(label_time_lab1, ":");
     lv_obj_set_style_text_color(label_time_lab1, lv_color_hex(0xffffff), LV_PART_MAIN);
-    // 修正：使用 OUT_RIGHT_BOTTOM 确保基线对齐
-    lv_obj_align_to(label_time_lab1, label_time_hour, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
-    lv_obj_t *label_time_min = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_time_min, &main_clock, LV_PART_MAIN);
-    lv_label_set_text(label_time_min, "12");
+    lv_obj_t *label_time_min = lv_label_create(time_content);
+    lv_obj_set_style_text_font(label_time_min, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_label_set_text(label_time_min, "00");
     lv_obj_set_style_text_color(label_time_min, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_min, label_time_lab1, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
-    lv_obj_t *label_time_lab2 = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_time_lab2, &main_clock, LV_PART_MAIN);
+    lv_obj_t *label_time_lab2 = lv_label_create(time_content);
+    lv_obj_set_style_text_font(label_time_lab2, &lv_font_montserrat_20, LV_PART_MAIN);
     lv_label_set_text(label_time_lab2, ":");
     lv_obj_set_style_text_color(label_time_lab2, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_lab2, label_time_min, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
-    lv_obj_t *label_time_sec = lv_label_create(obj_time);
-    lv_obj_set_style_text_font(label_time_sec, &main_clock, LV_PART_MAIN);
-    lv_label_set_text(label_time_sec, "30");
+    lv_obj_t *label_time_sec = lv_label_create(time_content);
+    lv_obj_set_style_text_font(label_time_sec, &lv_font_montserrat_20, LV_PART_MAIN);
+    lv_label_set_text(label_time_sec, "00");
     lv_obj_set_style_text_color(label_time_sec, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_align_to(label_time_sec, label_time_lab2, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, 0);
 
-    lv_obj_set_grid_cell(obj_time, LV_GRID_ALIGN_STRETCH, 0, 3,
-                         LV_GRID_ALIGN_STRETCH, 0, 1);
+    /* 时间容器占据第3列 */
+    lv_obj_set_grid_cell(obj_time, LV_GRID_ALIGN_STRETCH, 2, 1,
+                        LV_GRID_ALIGN_STRETCH, 0, 1);
 
     /*========================================
      * 功能模块样式宏定义

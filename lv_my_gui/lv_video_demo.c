@@ -47,6 +47,7 @@ static lv_style_t video_area_style;
 // 全局状态变量
 static pid_t video_pid = -1;
 static int is_playing = 0;
+static int is_paused = 0;  // ✅ 新增：区分暂停状态
 static int fifo_fd = -1;
 static int fifo_out_fd = -1;
 static int volume_ = 30;
@@ -145,17 +146,15 @@ static void ensure_fifo() {
         }
     }
     
-    // 先打开输入FIFO（写端，非阻塞，避免等待读端）
+    // 先打开输入FIFO（写端，非阻塞）
     if (fifo_fd == -1) {
         fifo_fd = open(FIFO_PATH, O_WRONLY | O_NONBLOCK);
         if (fifo_fd == -1) {
             if (errno == ENXIO) {
-                // 如果没有读端，先以读写模式打开（保持FIFO活跃）
                 int dummy_fd = open(FIFO_PATH, O_RDWR | O_NONBLOCK);
                 if (dummy_fd != -1) {
                     printf("FIFO保活文件描述符: %d\n", dummy_fd);
                 }
-                // 再尝试写端
                 fifo_fd = open(FIFO_PATH, O_WRONLY | O_NONBLOCK);
             }
             
@@ -190,6 +189,7 @@ void video_stop() {
     lv_timer_pause(game_timer);
     lv_timer_pause(one_sec_timer);
     is_playing = 0;
+    is_paused = 0;
     
     lv_label_set_text(status_label, "停止播放");
     lv_label_set_text(play_label, LV_SYMBOL_PLAY);
@@ -218,14 +218,18 @@ static void toggle_play(lv_event_t *e) {
                 close(out_fd);
             }
             
+            // ✅ 关键修复：使用 -geometry 参数将视频渲染到指定位置和大小
+            // 格式：-geometry WxH+X+Y
+            // 视频区域：宽1024px，高420px，起始坐标(0,10)
             execl("/usr/bin/mplayer", "mplayer",
                 "-slave",
                 "-quiet",
                 "-input", "file=/rk3568/rk.fifo",
-                "-vo", "fbdev2:/dev/fb0",          // 显式指定FB设备
-                "-vf", "scale=1024:420",           // 缩放到420高度
-                "-geometry", "0:0",                 // 左上角对齐
-                "-zoom",                            // 启用缩放
+                "-vo", "fbdev2:/dev/fb0",
+                "-vf", "scale=1024:420",        // 缩放到指定尺寸
+                "-geometry", "0:10",            // 定位到屏幕坐标(0,10)
+                "-zoom",                        // 启用缩放
+                "-aspect", "16:9",              // 保持宽高比
                 "-ao", "alsa",
                 "-af", "volume=0:sc",
                 "-volume", "30",
@@ -242,6 +246,7 @@ static void toggle_play(lv_event_t *e) {
         total_seconds = 0;
         current_seconds = 0;
         is_playing = 1;
+        is_paused = 0;
         
         // 等待MPlayer启动
         usleep(500000);
@@ -263,28 +268,36 @@ static void toggle_play(lv_event_t *e) {
         lv_style_set_text_color(&status_style, STATUS_COLOR_PLAY);
         lv_obj_add_style(status_label, &status_style, 0);
         
-        printf("视频已启动: %s\n", play);
+        printf("视频已启动: %s (PID=%d)\n", play, video_pid);
     } else {
         // ========== 暂停/继续播放 ==========
         if (fifo_fd != -1) {
-            ssize_t ret = write(fifo_fd, VIDEO_PLAY, strlen(VIDEO_PLAY));
+            // 使用 pause 命令而不是 pause\n
+            const char *cmd = "pause\n";
+            ssize_t ret = write(fifo_fd, cmd, strlen(cmd));
+            
             if (ret > 0) {
-                is_playing = !is_playing;
+                // 切换暂停状态
+                is_paused = !is_paused;
                 
                 // 更新UI
-                lv_label_set_text(play_label, is_playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
-                lv_label_set_text(status_label, is_playing ? "正在播放" : "已暂停");
-                lv_style_set_text_color(&status_style, is_playing ? STATUS_COLOR_PLAY : STATUS_COLOR_PAUSE);
-                lv_obj_add_style(status_label, &status_style, 0);
-                
-                // 控制定时器
-                if(is_playing) {
-                    lv_timer_resume(one_sec_timer);
-                } else {
+                if(is_paused) {
+                    lv_label_set_text(play_label, LV_SYMBOL_PLAY);
+                    lv_label_set_text(status_label, "已暂停");
+                    lv_style_set_text_color(&status_style, STATUS_COLOR_PAUSE);
                     lv_timer_pause(one_sec_timer);
+                    lv_timer_pause(game_timer);
+                    printf("视频已暂停 (PID=%d)\n", video_pid);
+                } else {
+                    lv_label_set_text(play_label, LV_SYMBOL_PAUSE);
+                    lv_label_set_text(status_label, "正在播放");
+                    lv_style_set_text_color(&status_style, STATUS_COLOR_PLAY);
+                    lv_timer_resume(one_sec_timer);
+                    lv_timer_resume(game_timer);
+                    printf("视频继续播放 (PID=%d)\n", video_pid);
                 }
                 
-                printf("视频%s\n", is_playing ? "继续" : "暂停");
+                lv_obj_add_style(status_label, &status_style, 0);
             } else {
                 perror("发送暂停命令失败");
             }
@@ -353,7 +366,7 @@ static void volumup_video(lv_event_t *e) {
 // ==================== 进度条拖动开始 ====================
 static void slider_start_drag(lv_event_t *e) {
     is_slider_dragging = 1;
-    lv_timer_pause(one_sec_timer);  // 暂停自动更新
+    lv_timer_pause(one_sec_timer);
     printf("开始拖动进度条\n");
 }
 
@@ -362,23 +375,23 @@ static void slider_end_drag(lv_event_t *e) {
     is_slider_dragging = 0;
     
     if(fifo_fd != -1 && total_seconds > 0) {
-        // ✅ 使用百分比模式（更精确）
         int percent = lv_slider_get_value(progress_slider);
         char buf[50];
-        sprintf(buf, "seek %d 2\n", percent);  // 2 = 百分比模式
+        sprintf(buf, "seek %d 2\n", percent);
         
         ssize_t ret = write(fifo_fd, buf, strlen(buf));
         if(ret > 0) {
             printf("跳转到 %d%%\n", percent);
-            // 立即查询新位置
-            usleep(200000);  // 等待跳转完成
+            usleep(200000);
             write(fifo_fd, VIDEO_TIME, strlen(VIDEO_TIME));
         } else {
             perror("跳转失败");
         }
     }
     
-    lv_timer_resume(one_sec_timer);
+    if(is_playing && !is_paused) {
+        lv_timer_resume(one_sec_timer);
+    }
 }
 
 // ==================== 进度条值变化 ====================
@@ -459,8 +472,8 @@ static void one_sec_handle(lv_timer_t *timer) {
     int status;
     pid_t result = waitpid(video_pid, &status, WNOHANG);
     
-    if (result == 0 && is_playing && !is_slider_dragging) {
-        // 进程存活且正在播放
+    if (result == 0 && is_playing && !is_paused && !is_slider_dragging) {
+        // 进程存活且正在播放（未暂停）
         if(fifo_fd != -1) {
             write(fifo_fd, VIDEO_TIME, strlen(VIDEO_TIME));
             
@@ -477,7 +490,9 @@ static void one_sec_handle(lv_timer_t *timer) {
         // 视频播放结束
         video_pid = -1;
         is_playing = 0;
+        is_paused = 0;
         lv_timer_pause(one_sec_timer);
+        lv_timer_pause(game_timer);
         lv_label_set_text(status_label, "播放完成");
         lv_label_set_text(play_label, LV_SYMBOL_PLAY);
         printf("视频播放结束\n");
@@ -540,47 +555,66 @@ void video_init() {
     lv_obj_set_size(video_screen, 1024, 600);
     lv_obj_set_style_bg_color(video_screen, lv_color_hex(0x1E2127), 0);
 
-    // 视频显示区域
+    // ✅ 视频显示区域 - 与MPlayer渲染区域对齐
     video_player = lv_obj_create(video_screen);
-    lv_obj_set_size(video_player, 1024, 500);
-    lv_obj_align(video_player, LV_ALIGN_CENTER, 0, -50);
+    lv_obj_set_size(video_player, 1024, 420);
+    lv_obj_align(video_player, LV_ALIGN_TOP_MID, 0, 10);
     lv_obj_add_style(video_player, &video_area_style, 0);
+
+    // 进度标签
+    progress_label = lv_label_create(video_screen);
+    lv_obj_align(progress_label, LV_ALIGN_TOP_LEFT, 10, 440);
+    lv_label_set_text(progress_label, "00:00/00:00");
+    lv_obj_add_style(progress_label, &status_style, 0);
 
     // 状态标签
     status_label = lv_label_create(video_screen);
-    lv_obj_align(status_label, LV_ALIGN_TOP_RIGHT, -10, 430);
+    lv_obj_align(status_label, LV_ALIGN_TOP_RIGHT, -10, 440);
     lv_label_set_text(status_label, "未播放");
     lv_obj_add_style(status_label, &status_style, 0);
 
+    // 进度滑块
+    progress_slider = lv_slider_create(video_screen);
+    lv_obj_set_size(progress_slider, 800, 20);
+    lv_obj_align(progress_slider, LV_ALIGN_TOP_MID, 0, 470);
+    lv_slider_set_range(progress_slider, 0, 100);
+    lv_slider_set_value(progress_slider, 0, LV_ANIM_OFF);
+    lv_obj_add_event_cb(progress_slider, slider_start_drag, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(progress_slider, slider_end_drag, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_event_cb(progress_slider, progress_video, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_style(progress_slider, &slider_style_bg, LV_PART_MAIN);
+    lv_obj_add_style(progress_slider, &slider_style_indicator, LV_PART_INDICATOR);
+    lv_obj_add_style(progress_slider, &slider_style_knob, LV_PART_KNOB);
+
     // 播放/暂停按钮
     play_btn = lv_btn_create(video_screen);
-    lv_obj_set_size(play_btn, 100, 40);
+    lv_obj_set_size(play_btn, 100, 50);
     lv_obj_add_event_cb(play_btn, toggle_play, LV_EVENT_CLICKED, NULL);
     lv_obj_add_style(play_btn, &btn_style, LV_STATE_DEFAULT);
     lv_obj_add_style(play_btn, &btn_pressed_style, LV_STATE_PRESSED);
-    lv_obj_align(play_btn, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_align(play_btn, LV_ALIGN_BOTTOM_MID, 0, -10);
 
     play_label = lv_label_create(play_btn);
     lv_label_set_text(play_label, LV_SYMBOL_PLAY);
     lv_obj_add_style(play_label, &label_style, 0);
     lv_obj_center(play_label);
 
-    // 下一个按钮
-    next_btn = create_icon_button(video_screen, LV_SYMBOL_NEXT, 100, 40, next_video);
-    lv_obj_align(next_btn, LV_ALIGN_BOTTOM_MID, 110, -5);
-
     // 上一个按钮
-    prev_btn = create_icon_button(video_screen, LV_SYMBOL_PREV, 100, 40, prev_video);
-    lv_obj_align(prev_btn, LV_ALIGN_BOTTOM_MID, -110, -5);
+    prev_btn = create_icon_button(video_screen, LV_SYMBOL_PREV, 100, 50, prev_video);
+    lv_obj_align(prev_btn, LV_ALIGN_BOTTOM_MID, -110, -10);
+
+    // 下一个按钮
+    next_btn = create_icon_button(video_screen, LV_SYMBOL_NEXT, 100, 50, next_video);
+    lv_obj_align(next_btn, LV_ALIGN_BOTTOM_MID, 110, -10);
 
     // 返回主页按钮
-    backmainbt = create_icon_button(video_screen, LV_SYMBOL_HOME, 100, 60, backhome);
-    lv_obj_align(backmainbt, LV_ALIGN_BOTTOM_LEFT, 10, -5);
+    backmainbt = create_icon_button(video_screen, LV_SYMBOL_HOME, 80, 50, backhome);
+    lv_obj_align(backmainbt, LV_ALIGN_BOTTOM_LEFT, 10, -10);
 
     // 音量滑块
     volumup_btn = lv_slider_create(video_screen);
-    lv_obj_set_size(volumup_btn, 180, 30);
-    lv_obj_align(volumup_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
+    lv_obj_set_size(volumup_btn, 150, 30);
+    lv_obj_align(volumup_btn, LV_ALIGN_BOTTOM_RIGHT, -10, -20);
     lv_slider_set_range(volumup_btn, 0, 100);
     lv_slider_set_value(volumup_btn, volume_, LV_ANIM_ON);
     lv_obj_add_event_cb(volumup_btn, volumup_video, LV_EVENT_VALUE_CHANGED, NULL);
@@ -590,28 +624,9 @@ void video_init() {
 
     // 音量标签
     volumup_label = lv_label_create(video_screen);
-    lv_obj_align(volumup_label, LV_ALIGN_BOTTOM_RIGHT, -50, -35);
+    lv_obj_align(volumup_label, LV_ALIGN_BOTTOM_RIGHT, -40, -50);
     lv_label_set_text(volumup_label, "音量");
     lv_obj_add_style(volumup_label, &status_style, 0);
-
-    // 进度标签
-    progress_label = lv_label_create(video_screen);
-    lv_obj_align(progress_label, LV_ALIGN_TOP_LEFT, 10, 430);
-    lv_label_set_text(progress_label, "00:00/00:00");
-    lv_obj_add_style(progress_label, &status_style, 0);
-
-    // 进度滑块
-    progress_slider = lv_slider_create(video_screen);
-    lv_obj_set_size(progress_slider, 800, 20);
-    lv_obj_align(progress_slider, LV_ALIGN_TOP_MID, 0, 460);
-    lv_slider_set_range(progress_slider, 0, 100);
-    lv_slider_set_value(progress_slider, 0, LV_ANIM_OFF);
-    lv_obj_add_event_cb(progress_slider, slider_start_drag, LV_EVENT_PRESSED, NULL);
-    lv_obj_add_event_cb(progress_slider, slider_end_drag, LV_EVENT_RELEASED, NULL);
-    lv_obj_add_event_cb(progress_slider, progress_video, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_style(progress_slider, &slider_style_bg, LV_PART_MAIN);
-    lv_obj_add_style(progress_slider, &slider_style_indicator, LV_PART_INDICATOR);
-    lv_obj_add_style(progress_slider, &slider_style_knob, LV_PART_KNOB);
 
     // 创建定时器
     one_sec_timer = lv_timer_create(one_sec_handle, 1000, NULL);
@@ -626,6 +641,7 @@ void video_init() {
     volume_ = 30;
     total_time_flag = 0;
     is_playing = 0;
+    is_paused = 0;
     list = 0;
     is_slider_dragging = 0;
     
@@ -636,8 +652,8 @@ void video_init() {
 // ==================== 清理视频资源 ====================
 void video_cleanup() {
     // 暂停播放
-    if(is_playing && fifo_fd != -1) {
-        write(fifo_fd, VIDEO_PLAY, strlen(VIDEO_PLAY));
+    if(is_playing && fifo_fd != -1 && !is_paused) {
+        write(fifo_fd, "pause\n", 6);
         usleep(100000);
     }
     
@@ -671,6 +687,7 @@ void video_cleanup() {
     
     // 重置状态
     is_playing = 0;
+    is_paused = 0;
     total_time_flag = 0;
     total_seconds = 0;
     current_seconds = 0;
